@@ -176,6 +176,8 @@ function App() {
             variables={state.parseData?.variables || []}
             sampleValues={state.parseData?.sample_values || {}}
             onCategorization={handleCategorization}
+            uploadId={state.uploadData?.upload_id || 0}
+            sheetName={state.parseData?.sheet_name}
           />
         );
       case 2:

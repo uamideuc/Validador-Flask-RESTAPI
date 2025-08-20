@@ -151,6 +151,9 @@ class FileUploadService:
             if df.empty:
                 raise ValueError("El archivo está vacío o no contiene datos válidos")
             
+            # Handle unnamed columns
+            df, unnamed_columns_info = self._handle_unnamed_columns(df)
+            
             # Get column information
             columns = df.columns.tolist()
             
@@ -174,7 +177,8 @@ class FileUploadService:
                 'columns': columns,
                 'sample_values': sample_values,
                 'statistics': stats,
-                'sheet_name': sheet_name
+                'sheet_name': sheet_name,
+                'unnamed_columns_info': unnamed_columns_info
             }
             
         except Exception as e:
@@ -214,6 +218,62 @@ class FileUploadService:
             
         except Exception as e:
             raise ValueError(f"Error al leer archivo Excel: {str(e)}")
+    
+    def _handle_unnamed_columns(self, df: pd.DataFrame) -> tuple:
+        """
+        Handle unnamed columns by giving them descriptive names
+        Returns modified DataFrame and info about renamed columns
+        """
+        unnamed_columns_info = {
+            'has_unnamed': False,
+            'renamed_columns': [],
+            'total_unnamed': 0
+        }
+        
+        # Create a copy to avoid modifying original
+        df_copy = df.copy()
+        
+        # Find unnamed columns (typically start with 'Unnamed:' in pandas)
+        renamed_columns = []
+        
+        for i, col in enumerate(df_copy.columns):
+            col_str = str(col)
+            # Check if column is unnamed (pandas pattern) or empty/null
+            if (col_str.startswith('Unnamed:') or 
+                col_str.strip() == '' or 
+                col_str.lower() in ['nan', 'none', 'null'] or
+                pd.isna(col)):
+                
+                new_name = f'col_sin_nombre{i+1}'
+                
+                # Ensure unique name
+                counter = 1
+                original_new_name = new_name
+                while new_name in df_copy.columns:
+                    new_name = f'{original_new_name}_{counter}'
+                    counter += 1
+                
+                # Get sample values for this column
+                sample_values = df_copy.iloc[:, i].dropna().astype(str).unique()[:3].tolist()
+                
+                renamed_columns.append({
+                    'original_name': col_str,
+                    'new_name': new_name,
+                    'column_index': i + 1,
+                    'sample_values': sample_values
+                })
+                
+                # Rename the column
+                df_copy = df_copy.rename(columns={col: new_name})
+        
+        if renamed_columns:
+            unnamed_columns_info = {
+                'has_unnamed': True,
+                'renamed_columns': renamed_columns,
+                'total_unnamed': len(renamed_columns)
+            }
+        
+        return df_copy, unnamed_columns_info
     
     def get_file_info(self, file_path: str) -> Dict[str, Any]:
         """Get basic file information"""

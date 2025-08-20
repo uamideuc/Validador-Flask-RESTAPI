@@ -1,4 +1,5 @@
 # 🏗️ Validador de Instrumentos - Arquitectura y Diseño Técnico
+## Versión Funcional 0 - Con Preview de Bases de Datos
 
 ## 📋 Índice
 1. [Arquitectura General](#arquitectura-general)
@@ -13,6 +14,110 @@
 10. [Exportaciones y Archivos](#exportaciones-y-archivos)
 11. [Dónde y Cómo Hacer Cambios](#dónde-y-cómo-hacer-cambios)
 12. [Limitaciones y Restricciones](#limitaciones-y-restricciones)
+
+---
+
+## 🔄 Estado Actual - Versión 0
+
+### ✨ Funcionalidades Implementadas
+
+#### ✅ **Core Features (Completadas)**
+1. **Carga de Archivos**
+   - Soporte para Excel (.xlsx, .xls) y CSV
+   - Validación de tipos y tamaños
+   - Selección de hojas en Excel
+   - Manejo de diferentes encodings
+
+2. **Preview de Datos (NUEVO)**
+   - Visualización paginada de datos cargados
+   - Navegación por páginas (10 filas por defecto)
+   - Detección automática de columnas sin nombre
+   - Interfaz de alertas para columnas renombradas
+   - Tooltips para valores largos
+
+3. **Categorización de Variables**
+   - Drag & drop de variables por categoría
+   - Vista previa de valores de muestra
+   - Validación de categorización completa
+
+4. **Validaciones de Datos**
+   - Detección de ítems duplicados por instrumento
+   - Validación de completitud de metadata
+   - Análisis de variables de clasificación
+   - Generación de reportes comprensivos
+
+5. **Exportaciones**
+   - Datos normalizados (Excel con mapeo)
+   - Reporte de validación (Excel con errores marcados)
+   - Reporte de validación (PDF profesional)
+
+6. **Testing Backend**
+   - Suite completa de tests unitarios
+   - Cobertura de servicios principales
+   - Tests de APIs y manejo de errores
+
+### 🕐️ **Mejoras en esta Versión**
+
+#### **Preview de Datos Mejorado**
+```typescript
+// Antes: Solo parsing directo a categorización
+parseFile() → categorization
+
+// Ahora: Preview intermedio para validación
+parseFile() → DataPreview → categorization
+```
+
+#### **Manejo Robusto de Columnas**
+- **Problema anterior:** Columnas sin nombre causaban errores
+- **Solución actual:** Detección y renombrado automático
+- **Beneficio:** Procesar archivos "sucios" sin problemas
+
+#### **Mejor UX de Navegación**
+- **Stepper visual** con progreso claro
+- **Navegación bidireccional** entre pasos
+- **Validación de prerrequisitos** antes de avanzar
+- **Botón de reset** para comenzar nuevo análisis
+
+### 🚀 **Estado de Funcionalidades**
+
+| Funcionalidad | Estado | Notas |
+|---------------|--------|---------|
+| Carga de archivos | ✅ Completa | Excel + CSV, validaciones |
+| Preview de datos | ✅ Completa | Paginación, columnas sin nombre |
+| Categorización | ✅ Completa | Drag & drop, validación |
+| Validaciones | ✅ Completa | Duplicados, metadata, clasificación |
+| Exportaciones | ✅ Completa | Excel normalizado, Excel errores, PDF |
+| Testing backend | ✅ Completa | Tests unitarios, cobertura alta |
+| Testing frontend | ⚠️ Pendiente | Recomendado para próxima versión |
+| Autenticación | ⚠️ No implementado | Para uso local únicamente |
+| Persistencia | ⚠️ Temporal | SQLite local, archivos temp |
+
+### 📊 **Métricas de la Aplicación**
+
+- **Líneas de código:** ~3,500 (backend) + ~2,000 (frontend)
+- **Componentes React:** 5 principales + 1 modal
+- **Endpoints API:** 12 endpoints funcionales
+- **Tests unitarios:** 25+ tests en backend
+- **Archivos de configuración:** 8 archivos
+- **Dependencias:** 15 (backend) + 20 (frontend)
+
+### 📝 **Log de Cambios Recientes**
+
+#### **Últimas Mejoras (Versión Funcional 0)**
+1. **Agregado:** Componente DataPreview con paginación
+2. **Agregado:** Endpoint `/api/files/{id}/preview`
+3. **Mejorado:** Detección de columnas sin nombre más robusta
+4. **Mejorado:** Interface de usuario con alertas informativas
+5. **Agregado:** Tooltips para mejor UX
+6. **Mejorado:** Navegación entre pasos más fluida
+7. **Agregado:** Suite de tests más completa
+
+#### **Próximos Pasos Sugeridos**
+1. Implementar tests frontend (Jest + React Testing Library)
+2. Agregar filtros y búsqueda en DataPreview
+3. Mejorar manejo de archivos muy grandes
+4. Implementar caché para validaciones repetidas
+5. Agregar exportación a más formatos (JSON, XML)
 
 ---
 
@@ -128,6 +233,7 @@ bp = Blueprint('export', __name__, url_prefix='/api/export')
 frontend/src/
 ├── components/
 │   ├── FileUpload.tsx           # Componente de subida de archivos
+│   ├── DataPreview.tsx          # Preview paginado de datos
 │   ├── VariableCategorization.tsx # Categorización de variables
 │   ├── ValidationReport.jsx     # Reporte de validación
 │   └── ClassificationValuesModal.jsx # Modal de valores detallados
@@ -177,6 +283,7 @@ La aplicación sigue un flujo secuencial de 4 pasos:
 export class ApiService {
   static async uploadFile(file: File): Promise<UploadResponse>
   static async parseFile(uploadId: number): Promise<ParseResponse>
+  static async getDataPreview(uploadId: number, sheetName?: string, startRow?: number, rowsPerPage?: number): Promise<PreviewResponse>
   static async saveCategorization(): Promise<ValidationResponse>
   // ... más métodos
 }
@@ -204,6 +311,11 @@ export class ApiService {
    Frontend: ApiService.parseFile(upload_id)
    Backend: /api/files/{id}/parse → FileUploadService.parse_file()
    Resultado: DataFrame, variables, estadísticas
+
+2.5. PREVIEW DE DATOS (NUEVO)
+   Frontend: DataPreview → ApiService.getDataPreview()
+   Backend: /api/files/{id}/preview → FileUploadService.get_data_preview()
+   Resultado: preview_data, unnamed_columns_info, pagination
 
 3. CATEGORIZACIÓN
    Frontend: VariableCategorization → ApiService.saveCategorization()
@@ -335,6 +447,7 @@ class DatabaseManager:
 - Crear mapeo de variables
 - Exportar Excel con/sin errores
 - Generar hojas de resumen
+- Manejar columnas sin nombre automáticamente
 
 **Interacciones:**
 - Usado por: `routes/export.py`
@@ -376,6 +489,26 @@ class DatabaseManager:
 **Estado interno:**
 - `categorization: VariableCategorization`
 - `draggedVariable: string | null`
+
+#### DataPreview
+**Responsabilidades:**
+- Mostrar preview paginado de datos
+- Detectar y alertar sobre columnas sin nombre
+- Navegación por páginas de datos
+- Tooltips informativos para valores largos
+- Mostrar información de columnas renombradas
+
+**Estado interno:**
+- `previewData: PreviewData | null`
+- `currentPage: number`
+- `loading: boolean`
+- `error: string | null`
+
+**Funcionalidades clave:**
+- Paginación automática (10 filas por página)
+- Detección de columnas `Unnamed:`, vacías o con valores NaN
+- Renombrado automático a `col_sin_nombre{N}`
+- Acordeón expandible para mostrar columnas renombradas
 
 #### ValidationReport
 **Responsabilidades:**
@@ -430,6 +563,11 @@ POST /{upload_id}/parse
 - Body: { sheet_name?: string }
 - Retorna: variables[], sample_values, statistics
 
+POST /{upload_id}/preview
+- Obtiene preview paginado de datos
+- Body: { sheet_name?: string, start_row?: number, rows_per_page?: number }
+- Retorna: preview_data, columns, pagination_info, unnamed_columns_info
+
 POST /{upload_id}/categorization
 - Guarda categorización de variables
 - Body: VariableCategorization
@@ -471,6 +609,36 @@ POST /validation-report/{session_id}
 GET /{export_id}/download
 - Descarga archivo generado
 - Retorna: archivo binario
+
+### Preview API (`/api/files/`)
+```
+POST /{upload_id}/preview
+- Obtiene preview paginado de datos cargados
+- Body: { 
+    sheet_name?: string,     // Nombre de hoja (solo Excel)
+    start_row?: number,      // Fila de inicio (default: 0)
+    rows_per_page?: number   // Filas por página (default: 10)
+  }
+- Retorna: {
+    success: boolean,
+    preview_data: Array<Object>,  // Datos de las filas
+    columns: string[],            // Nombres de columnas
+    total_rows: number,           // Total de filas en el dataset
+    start_row: number,            // Fila de inicio actual
+    end_row: number,              // Fila final actual
+    has_more: boolean,            // Hay más filas disponibles
+    unnamed_columns_info: {       // Información sobre columnas renombradas
+      has_unnamed: boolean,
+      total_unnamed: number,
+      renamed_columns: Array<{
+        original_name: string,
+        new_name: string,
+        column_index: number,
+        sample_values: string[]
+      }>
+    }
+  }
+```
 ```
 
 ### Manejo de Errores
@@ -483,6 +651,8 @@ GET /{export_id}/download
 'FILE_NOT_AVAILABLE'       # Archivo no encontrado
 'VALIDATION_NOT_RUN'       # Validación no ejecutada
 'EXPORT_ERROR'             # Error en exportación
+'PREVIEW_ERROR'            # Error al generar preview
+'PAGINATION_ERROR'         # Error en paginación de datos
 ```
 
 **¿Por qué códigos de error?**
@@ -687,6 +857,96 @@ class PDFReportGenerator:
 
 ---
 
+## 🧪 Testing y Pruebas
+
+### Estructura de Testing
+
+```
+backend/tests/
+├── __init__.py
+├── test_api_files.py        # Tests de endpoints de archivos
+├── test_app.py              # Tests de configuración de la app
+├── test_data_normalizer.py  # Tests del normalizador de datos
+├── test_file_service.py     # Tests del servicio de archivos
+├── test_models.py           # Tests de modelos de datos
+└── test_validation_engine.py # Tests del motor de validaciones
+```
+
+### Cobertura de Testing
+
+#### Backend Tests
+1. **API Files Tests** (`test_api_files.py`)
+   - Upload de archivos válidos e inválidos
+   - Parsing de Excel y CSV
+   - Preview con paginación
+   - Manejo de errores de archivos
+
+2. **File Service Tests** (`test_file_service.py`)
+   - Validación de tipos de archivo
+   - Detección de columnas sin nombre
+   - Procesamiento de diferentes formatos
+   - Límites de tamaño de archivos
+
+3. **Validation Engine Tests** (`test_validation_engine.py`)
+   - Validación de duplicados
+   - Completitud de metadata
+   - Análisis de clasificación
+   - Generación de reportes
+
+4. **Data Normalizer Tests** (`test_data_normalizer.py`)
+   - Normalización de nombres de columnas
+   - Exportación a Excel
+   - Manejo de caracteres especiales
+   - Mapeo de variables
+
+#### Frontend Testing
+**Estado:** No implementado
+**Recomendaciones:**
+- Jest + React Testing Library
+- Tests unitarios de componentes
+- Tests de integración con API
+- Tests E2E con Cypress
+
+### Cómo Ejecutar Tests
+
+```bash
+# Backend tests
+cd backend
+python -m pytest tests/ -v
+
+# Con cobertura
+python -m pytest tests/ --cov=app --cov-report=html
+
+# Test específico
+python -m pytest tests/test_file_service.py -v
+```
+
+### Estrategia de Testing
+
+#### Datos de Prueba
+- Archivos Excel con columnas sin nombre
+- CSV con diferentes encodings
+- Archivos con datos duplicados
+- Datasets con metadata incompleta
+
+#### Casos de Prueba Críticos
+1. **Columnas Sin Nombre:**
+   - Detección correcta
+   - Renombrado automático
+   - Preservación de valores
+
+2. **Preview Paginado:**
+   - Navegación correcta
+   - Límites de paginación
+   - Manejo de archivos grandes
+
+3. **Validaciones:**
+   - Detección de duplicados exactos
+   - Cálculo de porcentajes de completitud
+   - Generación de reportes precisos
+
+---
+
 ## 🔧 Dónde y Cómo Hacer Cambios
 
 ### ✅ Cambios Seguros y Recomendados
@@ -749,7 +1009,21 @@ def validate_file(self, file):
 
 **Impacto:** Bajo - Solo afecta validación inicial
 
-#### 5. Agregar Nuevos Componentes de UI
+#### 5. Modificar Preview de Datos
+**Dónde:** `frontend/src/components/DataPreview.tsx`
+```typescript
+// Cambiar filas por página
+const [rowsPerPage] = useState(10); // Cambiar a 20, 50, etc.
+
+// Modificar detección de columnas sin nombre
+// En backend: app/services/file_service.py
+if pd.isna(col) or col == '' or 'Unnamed:' in str(col):
+    new_name = f'col_sin_nombre_{unnamed_count}'
+```
+
+**Impacto:** Bajo - Solo afecta presentación de datos
+
+#### 6. Agregar Nuevos Componentes de UI
 **Dónde:** `frontend/src/components/`
 
 **Pasos:**
@@ -840,6 +1114,7 @@ def validate_file(self, file):
 **Razón:** Memoria RAM para procesamiento con pandas
 **Impacto:** Archivos muy grandes pueden causar timeouts
 **Solución:** Procesamiento por chunks o streaming
+**Nuevo:** Preview paginado mitiga el problema para visualización
 
 #### 2. Tipos de Archivo
 **Limitación:** Solo Excel (.xlsx, .xls) y CSV
@@ -847,13 +1122,31 @@ def validate_file(self, file):
 **Impacto:** No soporta otros formatos (JSON, XML, etc.)
 **Solución:** Agregar parsers específicos
 
+#### 3. Columnas Sin Nombre
+**Manejo:** Automático con nombres `col_sin_nombre{N}`
+**Detección:** Columnas vacías, 'Unnamed:', NaN, valores nulos
+**Impacto:** Permite procesar archivos con columnas mal formateadas
+**Alertas:** Se notifica al usuario sobre columnas renombradas
+**UI:** Acordeón expandible en DataPreview con detalles completos
+**Información mostrada:**
+- Nombre original vs nombre nuevo
+- Índice de columna
+- Valores de muestra de la columna
+- Contador total de columnas renombradas
+
 #### 3. Concurrencia
 **Limitación:** Una validación por vez por sesión
 **Razón:** Archivos temporales y estado en memoria
 **Impacto:** No escalable para múltiples usuarios simultáneos
 **Solución:** Queue system o procesamiento asíncrono
 
-#### 4. Persistencia
+#### 4. Preview Paginado
+**Limitación:** Máximo 10 filas por página por defecto
+**Razón:** Performance y UX en frontend
+**Impacto:** Navegación necesaria para datasets grandes
+**Configuración:** Modificable en DataPreview.tsx
+
+#### 5. Persistencia
 **Limitación:** Archivos temporales se eliminan
 **Razón:** Diseño para uso local/desarrollo
 **Impacto:** No hay historial de validaciones
@@ -928,8 +1221,10 @@ def validate_file(self, file):
 1. **Simplicidad:** Fácil de entender y mantener
 2. **Separación clara:** Frontend/Backend bien definidos
 3. **Extensibilidad:** Fácil agregar nuevas validaciones
-4. **Testabilidad:** Componentes bien aislados
+4. **Testabilidad:** Componentes bien aislados con suite de tests
 5. **Desarrollo rápido:** Stack conocido y documentado
+6. **UX mejorada:** Preview paginado mejora experiencia de usuario
+7. **Robustez:** Manejo automático de columnas malformadas
 
 ### Áreas de Mejora para Escalabilidad
 
@@ -938,14 +1233,18 @@ def validate_file(self, file):
 3. **Concurrencia:** Queue system para procesamiento
 4. **Seguridad:** Autenticación y autorización
 5. **Performance:** Caché y procesamiento asíncrono
+6. **Testing Frontend:** Implementar tests unitarios y E2E
+7. **Preview Avanzado:** Filtros, búsqueda, ordenamiento
 
 ### Recomendaciones para Nuevos Desarrolladores
 
 1. **Empezar por:** Servicios del backend (más aislados)
-2. **Entender primero:** Flujo de datos completo
-3. **Testear siempre:** Cada cambio con datos reales
-4. **Documentar:** Cambios en arquitectura
-5. **Seguir patrones:** Mantener consistencia con código existente
+2. **Entender primero:** Flujo de datos completo incluyendo preview
+3. **Testear siempre:** Cada cambio con datos reales y ejecutar tests
+4. **Experimentar con preview:** Subir diferentes tipos de archivos
+5. **Documentar:** Cambios en arquitectura
+6. **Seguir patrones:** Mantener consistencia con código existente
+7. **Probar columnas sin nombre:** Casos edge importantes para entender
 
 ---
 

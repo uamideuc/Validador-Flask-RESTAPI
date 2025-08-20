@@ -63,6 +63,14 @@ class ValidationEngine:
         """
         result = DuplicateValidationResult(is_valid=True)
         
+        # Add validation parameters info
+        result.validation_parameters = {
+            'item_id_variables': self.categorization.item_id_vars,
+            'instrument_variables': self.categorization.instrument_vars if self.categorization.instrument_vars else ['(toda la base como un instrumento)'],
+            'validation_method': 'Búsqueda de IDs duplicados dentro de cada instrumento',
+            'total_instruments_analyzed': len(self._get_instruments())
+        }
+        
         try:
             if not self.categorization.item_id_vars:
                 result.add_error(
@@ -157,6 +165,13 @@ class ValidationEngine:
         """
         result = MetadataValidationResult(is_valid=True)
         
+        # Add validation parameters info
+        result.validation_parameters = {
+            'metadata_variables': self.categorization.metadata_vars,
+            'validation_method': 'Análisis de completitud de variables de metadata',
+            'total_items_analyzed': len(self.data)
+        }
+        
         try:
             if not self.categorization.metadata_vars:
                 result.add_warning(
@@ -235,6 +250,15 @@ class ValidationEngine:
         Classification variables can have empty values (this is acceptable)
         """
         result = ClassificationValidationResult(is_valid=True)
+        
+        # Add validation parameters info
+        result.validation_parameters = {
+            'classification_variables': self.categorization.classification_vars,
+            'instrument_variables': self.categorization.instrument_vars if self.categorization.instrument_vars else ['(toda la base como un instrumento)'],
+            'validation_method': 'Análisis de valores únicos y completitud por instrumento',
+            'total_instruments_analyzed': len(self._get_instruments()),
+            'total_items_analyzed': len(self.data)
+        }
         
         try:
             if not self.categorization.classification_vars:

@@ -100,6 +100,20 @@ export class ApiService {
     return response.data;
   }
 
+  static async getDataPreview(uploadId: number, sheetName?: string, startRow: number = 0, rowsPerPage: number = 10): Promise<any> {
+    const response = await axios.post(`/api/files/${uploadId}/preview`, {
+      sheet_name: sheetName,
+      start_row: startRow,
+      rows_per_page: rowsPerPage
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
+  }
+
   static async exportNormalizedData(sessionId: number): Promise<{ success: boolean; export_id: number; filename: string }> {
     const response = await axios.post('/api/export/normalized', {
       session_id: sessionId

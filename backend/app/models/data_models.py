@@ -90,6 +90,7 @@ class DuplicateValidationResult(ValidationResult):
     duplicate_items: List[DuplicateItem] = field(default_factory=list)
     instruments_analyzed: int = 0
     total_items_checked: int = 0
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
@@ -106,7 +107,8 @@ class DuplicateValidationResult(ValidationResult):
                 } for item in self.duplicate_items
             ],
             'instruments_analyzed': self.instruments_analyzed,
-            'total_items_checked': self.total_items_checked
+            'total_items_checked': self.total_items_checked,
+            'validation_parameters': self.validation_parameters
         }
 
 @dataclass
@@ -115,6 +117,7 @@ class MetadataValidationResult(ValidationResult):
     missing_values: Dict[str, List[int]] = field(default_factory=dict)  # variable -> row indices
     completeness_stats: Dict[str, float] = field(default_factory=dict)  # variable -> completion percentage
     unique_values_summary: Dict[str, Set[str]] = field(default_factory=dict)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
@@ -125,7 +128,8 @@ class MetadataValidationResult(ValidationResult):
             'statistics': self.statistics,
             'missing_values': self.missing_values,
             'completeness_stats': self.completeness_stats,
-            'unique_values_summary': {k: list(v) for k, v in self.unique_values_summary.items()}
+            'unique_values_summary': {k: list(v) for k, v in self.unique_values_summary.items()},
+            'validation_parameters': self.validation_parameters
         }
 
 @dataclass
@@ -134,6 +138,7 @@ class ClassificationValidationResult(ValidationResult):
     empty_cells: Dict[str, List[int]] = field(default_factory=dict)  # variable -> row indices
     unique_counts_per_instrument: Dict[str, Dict[str, int]] = field(default_factory=dict)  # instrument -> {variable: count}
     completeness_stats: Dict[str, float] = field(default_factory=dict)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
@@ -144,7 +149,8 @@ class ClassificationValidationResult(ValidationResult):
             'statistics': self.statistics,
             'empty_cells': self.empty_cells,
             'unique_counts_per_instrument': self.unique_counts_per_instrument,
-            'completeness_stats': self.completeness_stats
+            'completeness_stats': self.completeness_stats,
+            'validation_parameters': self.validation_parameters
         }
 
 @dataclass

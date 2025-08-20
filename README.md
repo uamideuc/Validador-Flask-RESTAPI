@@ -4,11 +4,13 @@ Aplicación web para validar bases de datos de instrumentos educativos o de eval
 
 ## Características
 
-- Carga de archivos XLSX y CSV
-- Categorización de variables mediante drag-and-drop
-- Validación automática de duplicados, metadata y clasificación
-- Generación de reportes profesionales
-- Exportación de datos normalizados
+- **Carga de archivos** XLSX y CSV con manejo automático de columnas sin nombre
+- **Preview de datos** interactivo durante la categorización de variables
+- **Categorización de variables** mediante drag-and-drop intuitivo
+- **Validación automática** de duplicados, metadata y clasificación con parámetros transparentes
+- **Soporte para instrumentos únicos** (bases sin variables de instrumento)
+- **Generación de reportes** profesionales en PDF y Excel
+- **Exportación de datos** normalizados y con errores marcados
 
 ## Estructura del Proyecto
 

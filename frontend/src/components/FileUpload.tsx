@@ -134,6 +134,12 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onFileParsed })
       });
 
       const parseData = response.data;
+      
+      // Check for unnamed columns and show warning
+      if (parseData.unnamed_columns_info?.has_unnamed) {
+        setError(`⚠️ Se detectaron ${parseData.unnamed_columns_info.total_unnamed} columnas sin nombre. Se les asignaron nombres automáticamente para poder categorizarlas.`);
+      }
+      
       onFileParsed(parseData);
       setSheetDialogOpen(false);
 

@@ -13,11 +13,14 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  IconButton,
+  Tooltip
 } from '@mui/material';
-import { ExpandMore, DragIndicator, Category, Assignment, Info, Class } from '@mui/icons-material';
+import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Visibility, VisibilityOff } from '@mui/icons-material';
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import DataPreview from './DataPreview';
 
 interface Variable {
   name: string;
@@ -28,6 +31,8 @@ interface VariableCategorizationProps {
   variables: string[];
   sampleValues: Record<string, string[]>;
   onCategorization: (categorization: any) => void;
+  uploadId: number;
+  sheetName?: string;
 }
 
 interface CategoryConfig {
@@ -178,6 +183,8 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   variables,
   sampleValues,
   onCategorization,
+  uploadId,
+  sheetName,
 }) => {
   const [categorizedVariables, setCategorizedVariables] = useState<Record<string, Variable[]>>({
     instrument_vars: [],
@@ -193,6 +200,8 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       sampleValues: sampleValues[name] || []
     }))
   );
+
+  const [showPreview, setShowPreview] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -303,6 +312,31 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
             />
           </Box>
         </Paper>
+
+        {/* Data Preview Toggle */}
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+          <Tooltip title={showPreview ? "Ocultar preview de datos" : "Ver preview de datos para verificar columnas"}>
+            <Button
+              variant={showPreview ? "contained" : "outlined"}
+              startIcon={showPreview ? <VisibilityOff /> : <Visibility />}
+              onClick={() => setShowPreview(!showPreview)}
+              sx={{ minWidth: 200 }}
+            >
+              {showPreview ? 'Ocultar Preview' : 'Ver Preview de Datos'}
+            </Button>
+          </Tooltip>
+        </Box>
+
+        {/* Data Preview Component */}
+        {showPreview && (
+          <Box sx={{ mb: 3 }}>
+            <DataPreview 
+              uploadId={uploadId} 
+              sheetName={sheetName}
+              onClose={() => setShowPreview(false)}
+            />
+          </Box>
+        )}
 
         {/* Uncategorized variables */}
         {uncategorizedVariables.length > 0 && (

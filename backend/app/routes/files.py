@@ -6,6 +6,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from app.services.file_service import FileUploadService
 from app.models.database import db_manager, DatabaseManager
 import os
+import pandas as pd
 
 bp = Blueprint('files', __name__, url_prefix='/api/files')
 
@@ -240,6 +241,91 @@ def get_variables(upload_id):
             'success': False,
             'error': f'Error al obtener variables: {str(e)}',
             'error_code': 'VARIABLES_ERROR'
+        }), 500
+
+@bp.route('/<int:upload_id>/preview', methods=['POST'])
+def get_data_preview(upload_id):
+    """Get data preview with pagination"""
+    try:
+        if not request.is_json:
+            return jsonify({
+                'success': False,
+                'error': 'Se requiere contenido JSON',
+                'error_code': 'INVALID_CONTENT_TYPE'
+            }), 400
+        
+        data = request.get_json()
+        sheet_name = data.get('sheet_name')
+        start_row = data.get('start_row', 0)
+        rows_per_page = min(data.get('rows_per_page', 10), 50)  # Max 50 rows
+        
+        # Get upload record from database
+        db = get_db_manager()
+        upload_record = db.get_upload_record(upload_id)
+        
+        if not upload_record:
+            return jsonify({
+                'success': False,
+                'error': 'Registro de subida no encontrado',
+                'error_code': 'UPLOAD_NOT_FOUND'
+            }), 404
+        
+        file_path = upload_record['file_path']
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            return jsonify({
+                'success': False,
+                'error': 'Archivo no disponible en el servidor',
+                'error_code': 'FILE_NOT_AVAILABLE'
+            }), 404
+        
+        # Parse file to get DataFrame
+        file_service = get_file_service()
+        parse_result = file_service.parse_file(file_path, sheet_name)
+        
+        if not parse_result['success']:
+            return jsonify({
+                'success': False,
+                'error': f'Error al procesar archivo: {parse_result["error"]}',
+                'error_code': 'FILE_PARSE_ERROR'
+            }), 400
+        
+        df = parse_result['dataframe']
+        
+        # Get paginated data
+        end_row = min(start_row + rows_per_page, len(df))
+        preview_df = df.iloc[start_row:end_row]
+        
+        # Convert to records format for frontend
+        preview_data = []
+        for idx, row in preview_df.iterrows():
+            row_data = {'_row_index': int(idx)}
+            for col in df.columns:
+                value = row[col]
+                # Handle NaN and convert to string
+                if pd.isna(value):
+                    row_data[col] = ''
+                else:
+                    row_data[col] = str(value)
+            preview_data.append(row_data)
+        
+        return jsonify({
+            'success': True,
+            'preview_data': preview_data,
+            'columns': df.columns.tolist(),
+            'total_rows': len(df),
+            'start_row': start_row,
+            'end_row': end_row,
+            'has_more': end_row < len(df),
+            'unnamed_columns_info': parse_result.get('unnamed_columns_info', {})
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al obtener preview: {str(e)}',
+            'error_code': 'PREVIEW_ERROR'
         }), 500
 
 @bp.route('/<int:upload_id>/categorization', methods=['POST'])

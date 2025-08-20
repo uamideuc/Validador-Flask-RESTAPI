@@ -154,6 +154,24 @@ const ValidationReport = ({ validationData, onExport, sessionId }) => {
               <Typography>✓ No se encontraron ítems duplicados</Typography>
             </Alert>
           )}
+          
+          {/* Validation Parameters */}
+          {duplicateValidation.validation_parameters && (
+            <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                Parámetros de Validación:
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Variables de ID:</strong> {duplicateValidation.validation_parameters.item_id_variables?.join(', ') || 'Ninguna'}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Variables de Instrumento:</strong> {duplicateValidation.validation_parameters.instrument_variables?.join(', ') || 'Ninguna'}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Instrumentos Analizados:</strong> {duplicateValidation.validation_parameters.total_instruments_analyzed || 0}
+              </Typography>
+            </Box>
+          )}
         </AccordionDetails>
       </Accordion>
 
@@ -191,7 +209,7 @@ const ValidationReport = ({ validationData, onExport, sessionId }) => {
                       sx={{
                         width: `${percentage}%`,
                         height: '100%',
-                        backgroundColor: percentage === 100 ? '#4caf50' : percentage >= 95 ? '#ff9800' : '#f44336',
+                        backgroundColor: percentage === 100 ? '#4caf50' : '#ff9800',
                         borderRadius: 4,
                       }}
                     />
@@ -228,6 +246,21 @@ const ValidationReport = ({ validationData, onExport, sessionId }) => {
                 Completitud promedio: {metadataValidation.statistics.average_completeness || 0}%
               </Typography>
             </Alert>
+          )}
+          
+          {/* Validation Parameters */}
+          {metadataValidation.validation_parameters && (
+            <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                Parámetros de Validación:
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Variables de Metadata:</strong> {metadataValidation.validation_parameters.metadata_variables?.join(', ') || 'Ninguna'}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Total de Ítems:</strong> {metadataValidation.validation_parameters.total_items_analyzed || 0}
+              </Typography>
+            </Box>
           )}
         </AccordionDetails>
       </Accordion>
@@ -288,6 +321,27 @@ const ValidationReport = ({ validationData, onExport, sessionId }) => {
                 )}
               </Typography>
             </Alert>
+          )}
+          
+          {/* Validation Parameters */}
+          {classificationValidation.validation_parameters && (
+            <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                Parámetros de Validación:
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Variables de Clasificación:</strong> {classificationValidation.validation_parameters.classification_variables?.join(', ') || 'Ninguna'}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Variables de Instrumento:</strong> {classificationValidation.validation_parameters.instrument_variables?.join(', ') || 'Ninguna'}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Instrumentos Analizados:</strong> {classificationValidation.validation_parameters.total_instruments_analyzed || 0}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Total de Ítems:</strong> {classificationValidation.validation_parameters.total_items_analyzed || 0}
+              </Typography>
+            </Box>
           )}
         </AccordionDetails>
       </Accordion>
