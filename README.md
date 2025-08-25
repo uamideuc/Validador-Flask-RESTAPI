@@ -100,7 +100,10 @@
 
 ```powershell
 # Desde la carpeta raíz del proyecto
-.\backend\start_dev.ps1
+cd backend
+.\start_dev.ps1 # Si es macOS o Linux reemplazar script/ por bin/ dentro del script
+```
+pip install -r requirements.txt
 ```
 
 Este script automáticamente:
@@ -126,6 +129,7 @@ Servidor disponible en http://localhost:5000
 2. **Frontend (Terminal 2):**
 ```bash
 cd frontend
+npm install ## Si corresponde o es primer uso
 npm start
 ```
 Aplicación disponible en http://localhost:3000
