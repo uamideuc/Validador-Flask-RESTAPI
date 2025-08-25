@@ -67,3 +67,4 @@ temp/
 # Logs
 *.log
 /backend/.env.backup
+/.kiro/

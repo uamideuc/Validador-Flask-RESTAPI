@@ -302,4 +302,3 @@ npm test
 - **Aislamiento de sesiones**: Los usuarios solo pueden acceder a sus propios datos
 - **Expiración automática**: Sesiones y archivos se eliminan automáticamente después de 24 horas
 - **Validación de archivos**: Todos los uploads pasan por escaneo de seguridad
-- **Steam interference**: La aplicación puede recibir requests harmless de Steam buscando servidores de juegos (ignorar logs 405)
