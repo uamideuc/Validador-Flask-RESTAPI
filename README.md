@@ -27,97 +27,169 @@
 ```
 ├── backend/                    # Flask API Seguro
 │   ├── app/
-│   │   ├── models/             # Modelos de datos con aislamiento de sesiones
-│   │   │   ├── session_model.py # Gestión de sesiones JWT
-│   │   │   └── database.py     # Base de datos con aislamiento
-│   │   ├── services/           # Lógica de negocio con seguridad
-│   │   │   └── file_security.py # Validación de archivos
+│   │   ├── __init__.py         # Factory de aplicación con configuración JWT
+│   │   ├── models/             # Modelos de datos y base de datos
+│   │   │   ├── __init__.py
+│   │   │   ├── data_models.py  # Modelos de datos (VariableCategorization, ValidationReport)
+│   │   │   ├── database.py     # Manager de base de datos SQLite con aislamiento
+│   │   │   └── session_model.py # Gestión de sesiones JWT
 │   │   ├── routes/             # Endpoints de API protegidos con JWT
-│   │   │   └── auth.py         # Autenticación institucional
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py         # Autenticación institucional
+│   │   │   ├── files.py        # Carga y procesamiento de archivos
+│   │   │   ├── validation.py   # Ejecución de validaciones
+│   │   │   └── export.py       # Exportación de datos y reportes
+│   │   ├── services/           # Lógica de negocio
+│   │   │   ├── __init__.py
+│   │   │   ├── file_service.py # Servicio de carga y parsing de archivos
+│   │   │   ├── file_security.py # Validación de seguridad de archivos
+│   │   │   ├── validation_engine.py # Motor de validación principal
+│   │   │   ├── data_normalizer.py # Normalización y exportación
+│   │   │   └── pdf_generator.py # Generación de reportes PDF
 │   │   └── utils/              # Utilidades de seguridad
 │   │       ├── session_auth.py # Decoradores de autorización
 │   │       └── cleanup_scheduler.py # Limpieza automática
-│   ├── setup_development.ps1   # Configuración de desarrollo seguro
-│   ├── setup_production.ps1    # Configuración de producción
-│   └── .env                    # Variables de entorno (claves secretas)
+│   ├── tests/                  # Suite de tests completa (25+ tests)
+│   │   ├── __init__.py
+│   │   ├── test_app.py         # Tests de aplicación
+│   │   ├── test_api_files.py   # Tests de API de archivos
+│   │   ├── test_file_service.py # Tests de servicio de archivos
+│   │   ├── test_validation_engine.py # Tests del motor de validación
+│   │   ├── test_data_normalizer.py # Tests de normalización
+│   │   └── test_models.py      # Tests de modelos
+│   ├── uploads/                # Directorio temporal de archivos subidos
+│   ├── run.py                  # Punto de entrada del servidor de desarrollo
+│   ├── requirements.txt        # Dependencias de Python
+│   ├── activate.ps1           # Activación de entorno virtual
+│   ├── start_dev.ps1          # 🚀 Script de setup completo (NUEVO)
+│   ├── validador.db           # Base de datos SQLite
+│   └── .env                   # Variables de entorno (claves secretas)
 ├── frontend/                   # React + TypeScript con Autenticación
 │   ├── src/
-│   │   ├── components/
-│   │   │   └── Login.tsx       # Pantalla de login profesional
+│   │   ├── App.tsx            # Componente principal con manejo de estado
+│   │   ├── index.tsx          # Punto de entrada de React
+│   │   ├── components/        # Componentes de UI
+│   │   │   ├── Login.tsx      # Pantalla de login profesional
+│   │   │   ├── FileUpload.tsx # Carga de archivos con drag-and-drop
+│   │   │   ├── DataPreview.tsx # Preview paginado de datos
+│   │   │   ├── VariableCategorization.tsx # Categorización drag-and-drop
+│   │   │   ├── ValidationReport.jsx # Reporte de validación profesional
+│   │   │   └── ClassificationValuesModal.jsx # Modal de valores detallados
 │   │   ├── contexts/
 │   │   │   └── AuthContext.tsx # Contexto de autenticación JWT
-│   │   └── services/
-│   │       └── api.ts          # Cliente HTTP con manejo automático de tokens
-│   └── package.json
-└── README.md
+│   │   ├── services/
+│   │   │   └── api.ts         # Cliente HTTP con manejo automático de tokens
+│   │   └── types/
+│   │       └── index.ts       # Definiciones de tipos TypeScript
+│   ├── public/
+│   │   └── index.html         # Template HTML principal
+│   ├── package.json           # Dependencias y scripts de npm
+│   ├── package-lock.json      # Lock de versiones exactas
+│   ├── tsconfig.json          # Configuración de TypeScript
+│   └── craco.config.js        # Configuración de build personalizada
+├── uploads/                    # Directorio de archivos temporales (raíz)
+├── README.md                  # Este archivo
+└── README_4dummys.md         # Guía simplificada para usuarios
 ```
 
 ## Desarrollo
 
-### 🚨 Configuración de Seguridad (REQUERIDA)
+### 🚀 Inicio Rápido (Un Solo Comando)
 
-**IMPORTANTE**: La aplicación requiere configuración de seguridad antes del primer uso.
+**NUEVO**: Configuración automatizada con un solo script
 
-1. **Configurar entorno seguro del backend:**
 ```powershell
-# En Windows PowerShell - EJECUTAR PRIMERO
-.\backend\setup_development.ps1
-
-# Esto genera automáticamente:
-# - SECRET_KEY seguro de 32 caracteres
-# - INSTITUTIONAL_ACCESS_KEY para tu organización
-# - Archivo .env con configuración completa
+# Desde la carpeta raíz del proyecto
+.\backend\start_dev.ps1
 ```
 
-2. **Activar entorno virtual y dependencias:**
+Este script automáticamente:
+- ✅ Verifica Python y Node.js
+- ✅ Crea y activa entorno virtual Python
+- ✅ Instala dependencias Python (`pip install -r requirements.txt`)
+- ✅ Configura ambiente seguro (genera claves si no existen)
+- ✅ Instala dependencias Node.js (`npm install` en frontend)
+- ✅ Limpia base de datos para desarrollo limpio
+- ✅ **Todo listo para iniciar backend y frontend**
+
+### 🎯 Iniciar Servicios
+
+**Después de ejecutar `start_dev.ps1`:**
+
+1. **Backend (Terminal 1):**
 ```powershell
-.\backend\activate.ps1
-pip install -r backend\requirements.txt
+# Desde carpeta backend/ (con entorno virtual ya activado)
+python run.py
+```
+Servidor disponible en http://localhost:5000
+
+2. **Frontend (Terminal 2):**
+```bash
+cd frontend
+npm start
+```
+Aplicación disponible en http://localhost:3000
+
+**Primera vez**: Ingresa tu clave institucional mostrada en los logs del backend
+
+### 🛠️ Opciones Avanzadas del Script
+
+```powershell
+# Limpiar completamente cache y dependencias
+.\backend\start_dev.ps1 -Clean
+
+# Solo verificar configuración (no iniciar)
+.\backend\start_dev.ps1 -VerifyOnly
+
+# Limpiar y verificar
+.\backend\start_dev.ps1 -Clean -VerifyOnly
 ```
 
-3. **Instalar dependencias del frontend:**
+### ⚙️ Configuración Manual (Alternativa)
+
+Si prefieres configurar paso a paso:
+
+1. **Crear entorno virtual:**
+```powershell
+cd backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+2. **Instalar dependencias:**
+```powershell
+pip install -r requirements.txt
+```
+
+3. **Configurar ambiente:**
+```powershell
+.\setup_development.ps1
+```
+
+4. **Instalar frontend:**
 ```bash
 cd frontend
 npm install
 ```
 
-### ⚙️ Configuración Manual (Alternativa)
+### 📋 Logs de Inicio Esperados
 
-Si prefieres configurar manualmente, crea `backend/.env`:
-```env
-SECRET_KEY=tu-clave-secreta-de-32-caracteres-minimo
-INSTITUTIONAL_ACCESS_KEY=tu-clave-institucional
-FLASK_ENV=development
-```
-
-### 🖥️ Backend (Flask Seguro)
-
-```bash
-# Con entorno virtual activado
-python backend/run.py
-```
-
-El servidor estará disponible en http://localhost:5000
-
-**Logs de inicio esperados:**
+**Backend:**
 ```
 🛡️  Validador de Instrumentos - Secure Mode Enabled
 🌍 Environment: development
 🔑 Authentication: Required
 🔒 CORS: Configured
 ⏰ Session Duration: 24 hours
+🔑 INSTITUTIONAL_ACCESS_KEY: tu-clave-aqui
 ```
 
-### 🌐 Frontend (React con Autenticación)
-
-```bash
-cd frontend
-npm start
+**Frontend:**
 ```
-
-La aplicación estará disponible en http://localhost:3000
-
-**Primera vez**: Ingresa tu clave institucional configurada en `backend/.env`
+webpack compiled successfully
+Local:   http://localhost:3000
+Network: http://192.168.x.x:3000
+```
 
 ### Tests
 
