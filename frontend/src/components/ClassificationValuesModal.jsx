@@ -18,6 +18,7 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
+import axios from 'axios';
 
 const ClassificationValuesModal = ({ 
   open, 
@@ -35,39 +36,25 @@ const ClassificationValuesModal = ({
     setError(null);
     
     try {
-      // This would be a new API endpoint to get detailed values for a specific variable
-      const response = await fetch(`/api/validation/${sessionId}/variable-values`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          variable: variable,
-          instrument: instrument
-        }),
+      // Use axios instead of fetch to include JWT authentication automatically
+      const response = await axios.post(`/api/validation/${sessionId}/variable-values`, {
+        variable: variable,
+        instrument: instrument
       });
       
-      const data = await response.json();
-      
-      if (data.success) {
-        setValuesData(data.values_data);
+      if (response.data.success) {
+        setValuesData(response.data.values_data);
       } else {
-        throw new Error(data.error);
+        throw new Error(response.data.error);
       }
     } catch (error) {
-      setError(error.message || 'Error al cargar valores de la variable');
-      // Mock data for demonstration
-      setValuesData({
-        unique_values: [
-          { value: 'Comprensión Lectora', count: 45, percentage: 35.2 },
-          { value: 'Matemáticas', count: 38, percentage: 29.7 },
-          { value: 'Ciencias', count: 25, percentage: 19.5 },
-          { value: 'Historia', count: 20, percentage: 15.6 }
-        ],
-        total_items: 128,
-        empty_count: 5,
-        completeness: 96.1
-      });
+      const errorMessage = error.response?.data?.error || error.message || 'Error al cargar valores de la variable';
+      setError(errorMessage);
+      
+      // Show error without mock data - let user know authentication failed
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        setError('Acceso denegado. Es necesario ingresar la clave institucional.');
+      }
     } finally {
       setLoading(false);
     }
@@ -112,11 +99,8 @@ const ClassificationValuesModal = ({
         )}
         
         {error && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 2 }}>
             {error}
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              Mostrando datos de ejemplo para demostración.
-            </Typography>
           </Alert>
         )}
         
