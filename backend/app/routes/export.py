@@ -2,6 +2,8 @@
 Export routes
 """
 from flask import Blueprint, request, jsonify, current_app, send_file
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.utils.session_auth import require_session_ownership, get_current_session_id
 from app.services.data_normalizer import DataNormalizer
 from app.services.file_service import FileUploadService
 from app.services.pdf_generator import PDFReportGenerator
@@ -28,9 +30,18 @@ def get_file_service():
     return FileUploadService(upload_folder)
 
 @bp.route('/normalized', methods=['POST'])
+@jwt_required()
 def export_normalized():
     """Export normalized data"""
     try:
+        print("DEBUG: export_normalized called")
+        print(f"DEBUG: Request JSON: {request.get_json()}")
+        print(f"DEBUG: JWT Identity: {get_jwt_identity()}")
+        
+        # Get current session ID for ownership validation
+        current_session_id = get_current_session_id()
+        print(f"DEBUG: Current session ID: {current_session_id}")
+        
         if not request.is_json:
             return jsonify({
                 'success': False,
@@ -59,17 +70,29 @@ def export_normalized():
                 'error_code': 'SESSION_NOT_FOUND'
             }), 404
         
+        # Validate ownership: session must belong to current user
+        if session.get('session_id') != current_session_id:
+            return jsonify({
+                'success': False,
+                'error': 'Acceso no autorizado a esta sesión de validación',
+                'error_code': 'UNAUTHORIZED_SESSION_ACCESS'
+            }), 403
+        
         # Check if file still exists
+        print(f"DEBUG: Checking file exists at: {session['file_path']}")
         if not os.path.exists(session['file_path']):
+            print("DEBUG: File does not exist!")
             return jsonify({
                 'success': False,
                 'error': 'Archivo no disponible en el servidor',
                 'error_code': 'FILE_NOT_AVAILABLE'
             }), 404
         
+        print("DEBUG: File exists, parsing...")
         # Parse the file to get DataFrame
         file_service = get_file_service()
         parse_result = file_service.parse_file(session['file_path'])
+        print(f"DEBUG: Parse result success: {parse_result.get('success')}")
         
         if not parse_result['success']:
             return jsonify({
@@ -79,15 +102,19 @@ def export_normalized():
             }), 400
         
         # Create categorization object
+        print("DEBUG: Creating categorization object...")
         categorization_data = session['categorization']
         categorization = VariableCategorization.from_dict(categorization_data)
+        print(f"DEBUG: Categorization created: {type(categorization)}")
         
         # Normalize data
+        print("DEBUG: Starting data normalization...")
         normalizer = DataNormalizer()
         normalized_data, name_mapping = normalizer.normalize_column_names(
             parse_result['dataframe'], 
             categorization
         )
+        print("DEBUG: Data normalization completed")
         
         # Create mapping sheet
         mapping_sheet = normalizer.create_mapping_sheet(name_mapping, categorization)
@@ -105,11 +132,14 @@ def export_normalized():
         normalizer.save_normalized_file(excel_buffer, temp_file_path)
         
         # Create export record in database
+        print(f"DEBUG: Creating export record with validation_session_id={session_id}, session_id={current_session_id}")
         export_id = db.create_export_record(
-            session_id=session_id,
+            validation_session_id=session_id,
+            session_id=current_session_id,
             export_type='normalized_xlsx',
             file_path=temp_file_path
         )
+        print(f"DEBUG: Export record created with ID: {export_id}")
         
         return jsonify({
             'success': True,
@@ -121,6 +151,9 @@ def export_normalized():
         }), 201
         
     except Exception as e:
+        import traceback
+        print(f"DEBUG: Exception in export_normalized: {str(e)}")
+        print(f"DEBUG: Traceback: {traceback.format_exc()}")
         return jsonify({
             'success': False,
             'error': f'Error durante exportación: {str(e)}',
@@ -128,6 +161,7 @@ def export_normalized():
         }), 500
 
 @bp.route('/<int:export_id>/download', methods=['GET'])
+@jwt_required()
 def download_export(export_id):
     """Download exported file"""
     try:
@@ -184,6 +218,7 @@ def download_export(export_id):
         }), 500
 
 @bp.route('/validation-report/<int:session_id>', methods=['POST'])
+@jwt_required()
 def export_validation_report_pdf(session_id):
     """Export validation report as PDF"""
     try:
@@ -219,8 +254,10 @@ def export_validation_report_pdf(session_id):
             f.write(pdf_buffer.getvalue())
         
         # Create export record in database
+        current_session_id = get_current_session_id()
         export_id = db.create_export_record(
-            session_id=session_id,
+            validation_session_id=session_id,
+            session_id=current_session_id,
             export_type='validation_report_pdf',
             file_path=temp_file_path
         )
@@ -241,6 +278,7 @@ def export_validation_report_pdf(session_id):
         }), 500
 
 @bp.route('/validation-excel/<int:session_id>', methods=['POST'])
+@jwt_required()
 def export_validation_excel(session_id):
     """Export validation report as Excel with original data and annotations"""
     try:
@@ -297,8 +335,10 @@ def export_validation_excel(session_id):
         normalizer.save_normalized_file(validation_buffer, temp_file_path)
         
         # Create export record in database
+        current_session_id = get_current_session_id()
         export_id = db.create_export_record(
-            session_id=session_id,
+            validation_session_id=session_id,
+            session_id=current_session_id,
             export_type='validation_excel',
             file_path=temp_file_path
         )

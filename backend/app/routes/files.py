@@ -1,10 +1,11 @@
 """
-File upload and parsing routes
+File upload and parsing routes with session-based security
 """
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.exceptions import RequestEntityTooLarge
 from app.services.file_service import FileUploadService
 from app.models.database import db_manager, DatabaseManager
+from app.utils.session_auth import require_session_ownership, get_current_session_id, require_valid_session
 import os
 import pandas as pd
 
@@ -26,9 +27,13 @@ def get_db_manager():
         return db_manager
 
 @bp.route('/upload', methods=['POST'])
+@require_valid_session()
 def upload_file():
-    """Upload and process file"""
+    """Upload and process file with session-based security"""
     try:
+        # Get current session
+        current_session_id = get_current_session_id()
+        
         # Check if file is present in request
         if 'file' not in request.files:
             return jsonify({
@@ -47,16 +52,17 @@ def upload_file():
                 'error_code': 'NO_FILE_SELECTED'
             }), 400
         
-        # Upload file using service
+        # Upload file using secure service
         file_service = get_file_service()
         upload_result = file_service.upload_file(file)
         
         if not upload_result['success']:
             return jsonify(upload_result), 400
         
-        # Create database record
+        # Create database record with session ownership
         db = get_db_manager()
         upload_id = db.create_upload_record(
+            session_id=current_session_id,
             filename=upload_result['original_filename'],
             file_path=upload_result['file_path'],
             file_size=upload_result['file_size']
@@ -99,6 +105,7 @@ def upload_file():
         }), 500
 
 @bp.route('/<int:upload_id>/sheets', methods=['GET'])
+@require_session_ownership('upload')
 def get_sheets(upload_id):
     """Get available sheets for Excel files"""
     try:
@@ -142,6 +149,7 @@ def get_sheets(upload_id):
         }), 500
 
 @bp.route('/<int:upload_id>/parse', methods=['POST'])
+@require_session_ownership('upload')
 def parse_file(upload_id):
     """Parse file and return variables"""
     try:
@@ -207,6 +215,7 @@ def parse_file(upload_id):
         }), 500
 
 @bp.route('/<int:upload_id>/variables', methods=['GET'])
+@require_session_ownership('upload')
 def get_variables(upload_id):
     """Get variables from previously parsed file"""
     try:
@@ -244,6 +253,7 @@ def get_variables(upload_id):
         }), 500
 
 @bp.route('/<int:upload_id>/preview', methods=['POST'])
+@require_session_ownership('upload')
 def get_data_preview(upload_id):
     """Get data preview with pagination"""
     try:
@@ -329,10 +339,14 @@ def get_data_preview(upload_id):
         }), 500
 
 @bp.route('/<int:upload_id>/categorization', methods=['POST'])
+@require_session_ownership('upload')
 def save_categorization(upload_id):
-    """Save variable categorization"""
+    """Save variable categorization with session security"""
     try:
-        # Get upload record from database
+        # Get current session
+        current_session_id = get_current_session_id()
+        
+        # Get upload record from database (ownership already validated by decorator)
         db = get_db_manager()
         upload_record = db.get_upload_record(upload_id)
         
@@ -362,13 +376,13 @@ def save_categorization(upload_id):
                     'error_code': 'MISSING_FIELD'
                 }), 400
         
-        # Create validation session with categorization
-        session_id = db.create_validation_session(upload_id, categorization_data)
+        # Create validation session with categorization and current session
+        validation_session_id = db.create_validation_session(upload_id, current_session_id, categorization_data)
         
         return jsonify({
             'success': True,
             'upload_id': upload_id,
-            'session_id': session_id,
+            'validation_session_id': validation_session_id,
             'categorization': categorization_data,
             'message': 'Categorización guardada exitosamente'
         }), 201

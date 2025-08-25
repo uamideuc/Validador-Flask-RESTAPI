@@ -1,5 +1,5 @@
 """
-File upload and parsing service
+File upload and parsing service with security validation
 """
 import os
 import pandas as pd
@@ -9,6 +9,7 @@ from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 import uuid
 from datetime import datetime
+from app.services.file_security import FileSecurityValidator
 
 class FileUploadService:
     """Service for handling file uploads and parsing"""
@@ -19,6 +20,9 @@ class FileUploadService:
     def __init__(self, upload_folder: str):
         self.upload_folder = upload_folder
         os.makedirs(upload_folder, exist_ok=True)
+        
+        # Initialize security validator
+        self.security_validator = FileSecurityValidator(max_file_size=self.MAX_FILE_SIZE)
     
     def validate_file_format(self, file: FileStorage) -> bool:
         """Validate if file format is supported"""
@@ -43,11 +47,12 @@ class FileUploadService:
     
     def upload_file(self, file: FileStorage) -> Dict[str, Any]:
         """
-        Upload and save file to disk
-        Returns upload result with file info
+        Upload and save file to disk with comprehensive security validation
+        Returns upload result with file info and security scan results
         """
+        file_path = None
         try:
-            # Validate file
+            # Basic file validation (backwards compatibility)
             if not self.validate_file_format(file):
                 return {
                     'success': False,
@@ -68,39 +73,118 @@ class FileUploadService:
             unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
             file_path = os.path.join(self.upload_folder, unique_filename)
             
-            # Save file
+            # Save file temporarily for security scanning
             file.save(file_path)
             
-            # Get file size
-            file_size = os.path.getsize(file_path)
+            # SECURITY: Comprehensive security scan
+            print(f"🔍 Performing security scan on: {original_filename}")
+            security_result = self.security_validator.validate_file_comprehensive(file_path)
             
-            # Validate size after saving
-            if file_size > self.MAX_FILE_SIZE:
+            if not security_result.is_safe:
+                # Remove unsafe file immediately
                 os.remove(file_path)
+                
+                # Return detailed security error
+                error_details = '; '.join(security_result.errors)
+                warning_details = '; '.join(security_result.warnings) if security_result.warnings else ''
+                
+                full_error = error_details
+                if warning_details:
+                    full_error += f" Advertencias: {warning_details}"
+                
                 return {
                     'success': False,
-                    'error': f'Archivo demasiado grande. Máximo {self.MAX_FILE_SIZE // (1024*1024)}MB.',
-                    'error_code': 'FILE_TOO_LARGE'
+                    'error': f'ARCHIVO BLOQUEADO POR SEGURIDAD: {full_error}',
+                    'error_code': 'SECURITY_BLOCKED',
+                    'security_scan': self.security_validator.get_security_report(security_result)
                 }
             
-            return {
+            # File passed security checks
+            print(f"✅ Security scan passed for: {original_filename}")
+            
+            # Get file info after security validation
+            file_size = security_result.file_size
+            
+            # Create security report for successful upload
+            security_report = self.security_validator.get_security_report(security_result)
+            
+            success_response = {
                 'success': True,
                 'file_id': unique_filename.rsplit('.', 1)[0],  # Remove extension for ID
                 'original_filename': original_filename,
                 'file_path': file_path,
                 'file_size': file_size,
-                'file_extension': file_extension
+                'file_extension': file_extension,
+                'security_scan': security_report
             }
+            
+            # Add warnings if any (non-blocking)
+            if security_result.warnings:
+                success_response['security_warnings'] = security_result.warnings
+            
+            return success_response
             
         except Exception as e:
             # Clean up file if it was created
-            if 'file_path' in locals() and os.path.exists(file_path):
-                os.remove(file_path)
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except:
+                    pass  # Best effort cleanup
             
             return {
                 'success': False,
-                'error': f'Error al subir archivo: {str(e)}',
+                'error': f'Error al procesar archivo: {str(e)}',
                 'error_code': 'UPLOAD_ERROR'
+            }
+    
+    def upload_file_secure(self, file: FileStorage, session_id: str = None) -> Dict[str, Any]:
+        """
+        Secure upload method with optional session-based storage
+        This method moves files outside the web root for enhanced security
+        """
+        file_path = None
+        try:
+            # Call standard upload with security validation
+            upload_result = self.upload_file(file)
+            
+            if not upload_result['success']:
+                return upload_result
+            
+            original_path = upload_result['file_path']
+            
+            # Move to secure location outside web root if session_id provided
+            if session_id:
+                secure_folder = os.path.abspath(os.path.join(self.upload_folder, '..', '..', 'secure_uploads'))
+                os.makedirs(secure_folder, exist_ok=True)
+                
+                # Create session-specific subfolder
+                session_folder = os.path.join(secure_folder, f'session_{session_id}')
+                os.makedirs(session_folder, exist_ok=True)
+                
+                # Move file to secure location
+                secure_filename = os.path.basename(original_path)
+                secure_path = os.path.join(session_folder, secure_filename)
+                
+                os.rename(original_path, secure_path)
+                upload_result['file_path'] = secure_path
+                upload_result['secure_storage'] = True
+                upload_result['session_folder'] = session_folder
+            
+            return upload_result
+            
+        except Exception as e:
+            # Cleanup on error
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
+            
+            return {
+                'success': False,
+                'error': f'Error en upload seguro: {str(e)}',
+                'error_code': 'SECURE_UPLOAD_ERROR'
             }
     
     def get_sheet_names(self, file_path: str) -> List[str]:

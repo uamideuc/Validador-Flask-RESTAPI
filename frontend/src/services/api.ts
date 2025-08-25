@@ -1,7 +1,50 @@
 import axios from 'axios';
 
 // Configure axios defaults
-axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Remove baseURL to use Create React App proxy instead
+// axios.defaults.baseURL is not needed when using proxy in package.json
+
+// Configure axios to automatically include auth token
+axios.interceptors.request.use(
+  (config) => {
+    // Log only suspicious requests to root
+    if (config.url === '/' || config.url === '') {
+      console.warn('SUSPICIOUS REQUEST TO ROOT:', {
+        method: config.method,
+        url: config.url,
+        baseURL: config.baseURL,
+        stack: new Error().stack
+      });
+    }
+    
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Configure response interceptor to handle auth errors
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('sessionId');
+      
+      // Redirect to login if we're not already there
+      if (!window.location.pathname.includes('/login')) {
+        window.location.reload(); // Force reload to show login screen
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export interface UploadResponse {
   success: boolean;
@@ -43,7 +86,7 @@ export interface VariableCategorization {
 export interface ValidationResponse {
   success: boolean;
   upload_id: number;
-  session_id: number;
+  validation_session_id: number;
   categorization: VariableCategorization;
   message: string;
 }
@@ -138,6 +181,18 @@ export class ApiService {
 
   static async exportValidationPDF(sessionId: number): Promise<{ success: boolean; export_id: number; filename: string }> {
     const response = await axios.post(`/api/export/validation-report/${sessionId}`, {}, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
+  }
+
+  static async runValidation(sessionId: number): Promise<{ success: boolean; validation_report?: any; error?: string }> {
+    const response = await axios.post('/api/validation/run', {
+      session_id: sessionId
+    }, {
       headers: {
         'Content-Type': 'application/json',
       },

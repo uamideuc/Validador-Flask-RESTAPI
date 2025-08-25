@@ -2,6 +2,8 @@
 Validation routes
 """
 from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.utils.session_auth import require_session_ownership
 from app.services.validation_engine import ValidationEngine
 from app.services.file_service import FileUploadService
 from app.models.database import db_manager, DatabaseManager
@@ -25,6 +27,8 @@ def get_file_service():
     return FileUploadService(upload_folder)
 
 @bp.route('/run', methods=['POST'])
+@jwt_required()
+@require_session_ownership('validation')
 def run_validation():
     """Run validation on categorized data"""
     try:
@@ -101,6 +105,8 @@ def run_validation():
         }), 500
 
 @bp.route('/<int:session_id>/report', methods=['GET'])
+@jwt_required()
+@require_session_ownership('validation')
 def get_report(session_id):
     """Get validation report"""
     try:
@@ -138,6 +144,8 @@ def get_report(session_id):
         }), 500
 
 @bp.route('/<int:session_id>/variable-values', methods=['POST'])
+@jwt_required()
+@require_session_ownership('validation')
 def get_variable_values(session_id):
     """Get detailed values for a specific variable"""
     try:
