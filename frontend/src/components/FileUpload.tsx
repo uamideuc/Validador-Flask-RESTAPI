@@ -45,6 +45,37 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onFileParsed })
   const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
   const [parsing, setParsing] = useState(false);
 
+  const parseFile = useCallback(async (uploadId: number, sheetName?: string) => {
+    setParsing(true);
+    setError(null);
+
+    try {
+      const requestData = sheetName ? { sheet_name: sheetName } : {};
+      
+      const response = await axios.post(`/api/files/${uploadId}/parse`, requestData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const parseData = response.data;
+      
+      // If there are unnamed columns, show warning
+      if (parseData.unnamed_columns_info && parseData.unnamed_columns_info.has_unnamed) {
+        setError(`⚠️ Se detectaron ${parseData.unnamed_columns_info.total_unnamed} columnas sin nombre. Se les asignaron nombres automáticamente para poder categorizarlas.`);
+      }
+      
+      onFileParsed(parseData);
+      setSheetDialogOpen(false);
+
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'Error al procesar archivo';
+      setError(errorMessage);
+    } finally {
+      setParsing(false);
+    }
+  }, [onFileParsed]);
+
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -118,38 +149,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onFileParsed })
       setUploading(false);
       setUploadProgress(0);
     }
-  }, [onFileUploaded, onFileParsed]);
-
-  const parseFile = useCallback(async (uploadId: number, sheetName?: string) => {
-    setParsing(true);
-    setError(null);
-
-    try {
-      const requestData = sheetName ? { sheet_name: sheetName } : {};
-      
-      const response = await axios.post(`/api/files/${uploadId}/parse`, requestData, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const parseData = response.data;
-      
-      // Check for unnamed columns and show warning
-      if (parseData.unnamed_columns_info?.has_unnamed) {
-        setError(`⚠️ Se detectaron ${parseData.unnamed_columns_info.total_unnamed} columnas sin nombre. Se les asignaron nombres automáticamente para poder categorizarlas.`);
-      }
-      
-      onFileParsed(parseData);
-      setSheetDialogOpen(false);
-
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Error al procesar archivo';
-      setError(errorMessage);
-    } finally {
-      setParsing(false);
-    }
-  }, [onFileParsed]);
+  }, [onFileUploaded, parseFile]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

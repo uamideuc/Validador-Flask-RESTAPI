@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -16,7 +16,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  IconButton,
   Tooltip
 } from '@mui/material';
 import {
@@ -58,7 +57,7 @@ const DataPreview: React.FC<DataPreviewProps> = ({ uploadId, sheetName, onClose 
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage] = useState(10);
 
-  const fetchPreview = async (startRow: number = 0) => {
+  const fetchPreview = useCallback(async (startRow: number = 0) => {
     setLoading(true);
     setError(null);
     
@@ -74,11 +73,11 @@ const DataPreview: React.FC<DataPreviewProps> = ({ uploadId, sheetName, onClose 
     } finally {
       setLoading(false);
     }
-  };
+  }, [uploadId, sheetName, rowsPerPage]);
 
   useEffect(() => {
     fetchPreview();
-  }, [uploadId, sheetName]);
+  }, [fetchPreview]);
 
   const handleNextPage = () => {
     const newStartRow = (currentPage + 1) * rowsPerPage;

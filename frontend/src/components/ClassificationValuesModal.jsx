@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -30,13 +30,7 @@ const ClassificationValuesModal = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (open && variable && instrument && sessionId) {
-      fetchVariableValues();
-    }
-  }, [open, variable, instrument, sessionId]);
-
-  const fetchVariableValues = async () => {
+  const fetchVariableValues = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -77,7 +71,13 @@ const ClassificationValuesModal = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [variable, instrument, sessionId]);
+
+  useEffect(() => {
+    if (open && variable && instrument && sessionId) {
+      fetchVariableValues();
+    }
+  }, [open, variable, instrument, sessionId, fetchVariableValues]);
 
   const handleClose = () => {
     setValuesData(null);

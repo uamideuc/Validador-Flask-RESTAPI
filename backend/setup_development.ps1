@@ -37,7 +37,7 @@ $envContent = @"
 SECRET_KEY=dev-secret-key-change-in-production
 
 # Development institutional access key
-INSTITUTIONAL_ACCESS_KEY=dev-access-2024
+INSTITUTIONAL_ACCESS_KEY=dev-access-2025
 
 # ============================================
 # DEVELOPMENT ENVIRONMENT

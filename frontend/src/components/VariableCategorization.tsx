@@ -14,7 +14,6 @@ import {
   ListItem,
   ListItemText,
   Divider,
-  IconButton,
   Tooltip
 } from '@mui/material';
 import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Visibility, VisibilityOff } from '@mui/icons-material';
