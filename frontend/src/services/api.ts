@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// Configure axios defaults
-// Remove baseURL to use Create React App proxy instead
-// axios.defaults.baseURL is not needed when using proxy in package.json
+// En producción, Render asignará la URL del backend a esta variable de entorno.
+// En desarrollo, será undefined y React usará el proxy de package.json.
+axios.defaults.baseURL = process.env.REACT_APP_API_URL;
 
 // Configure axios to automatically include auth token
 axios.interceptors.request.use(
