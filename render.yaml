@@ -1,0 +1,61 @@
+# render.yaml: Configuración de despliegue para la aplicación Validador
+
+services:
+  # --- Servicio del Backend (API con Flask) ---
+  - type: web
+    name: validador-backend
+    env: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    
+    # Comando de inicio con UN SOLO WORKER.
+    # Esto es CRÍTICO para evitar que múltiples procesos corrompan la base de datos SQLite.
+    startCommand: "gunicorn --workers 1 --bind 0.0.0.0:$PORT run:app"
+    
+    # Conecta el disco persistente creado en el paso anterior.
+    disks:
+      - name: validador-disco # El nombre que le diste a tu disco
+        mountPath: /data/validador-disco # La ruta de montaje que te dio Render
+        
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.7 # ¡IMPORTANTE! Reemplaza esto con la versión de tu comando `python --version`
+      - key: FLASK_ENV
+        value: production
+        
+      # Apunta la app a las rutas dentro del disco persistente.
+      - key: DATABASE_PATH
+        value: /data/validador-disco/validador.db
+      - key: UPLOAD_FOLDER
+        value: /data/validador-disco/uploads
+        
+      # --- SECRETOS ---
+      # Estos valores se configuran en el Dashboard de Render para no exponerlos en el código.
+      # `sync: false` evita que Render los sobreescriba.
+      - key: SECRET_KEY
+        sync: false
+      - key: INSTITUTIONAL_ACCESS_KEY
+        sync: false
+      - key: FRONTEND_URL
+        # Render inyectará aquí la URL del frontend automáticamente.
+        value: ${validador-frontend.url}
+
+  # --- Servicio del Frontend (Sitio Estático con React) ---
+  - type: static
+    name: validador-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    publishDir: build
+    
+    # --- REGLA DE REESCRITURA (CRÍTICO para SPAs) ---
+    # Redirige todas las peticiones al index.html para que el enrutamiento de React funcione.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+        
+    envVars:
+      # Inyecta la URL del backend en el proceso de build del frontend.
+      - key: REACT_APP_API_URL
+        value: ${validador-backend.url}
