@@ -52,8 +52,8 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Use relative URLs to work with Create React App proxy
-const API_BASE = '/api';
+// En producción usa la variable de entorno, en desarrollo usa proxy
+const API_BASE = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : '/api';
 
 // Proveedor del contexto
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
@@ -138,7 +138,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ access_key: accessKey })
       });
 
-      const data = await response.json();
+      // Debugging temporal
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      const responseText = await response.text();
+      console.log('Response body:', responseText);
+      
+      // Intentar parsear el JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse JSON:', e);
+        throw new Error(`Server returned invalid JSON: ${responseText}`);
+      }
 
       if (response.ok && data.success) {
         // Login exitoso
