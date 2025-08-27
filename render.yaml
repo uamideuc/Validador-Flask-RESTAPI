@@ -4,30 +4,19 @@ services:
   # --- Servicio del Backend (API con Flask) ---
   - type: web
     name: validador-backend
-    env: python
+    runtime: python
     rootDir: backend
     buildCommand: "pip install -r requirements.txt"
     
     # Comando de inicio con UN SOLO WORKER.
     # Esto es CRÍTICO para evitar que múltiples procesos corrompan la base de datos SQLite.
     startCommand: "gunicorn --workers 1 --bind 0.0.0.0:$PORT run:app"
-    
-    # Conecta el disco persistente creado en el paso anterior.
-    disks:
-      - name: validador-disco # El nombre que le diste a tu disco
-        mountPath: /data/validador-disco # La ruta de montaje que te dio Render
         
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.7 # ¡IMPORTANTE! Reemplaza esto con la versión de tu comando `python --version`
+        value: "3.9"
       - key: FLASK_ENV
         value: production
-        
-      # Apunta la app a las rutas dentro del disco persistente.
-      - key: DATABASE_PATH
-        value: /data/validador-disco/validador.db
-      - key: UPLOAD_FOLDER
-        value: /data/validador-disco/uploads
         
       # --- SECRETOS ---
       # Estos valores se configuran en el Dashboard de Render para no exponerlos en el código.
@@ -41,18 +30,17 @@ services:
         value: ${validador-frontend.url}
 
   # --- Servicio del Frontend (Sitio Estático con React) ---
-  - type: static
+  - type: web
     name: validador-frontend
-    env: static
+    runtime: static
     rootDir: frontend
     buildCommand: "npm install && npm run build"
-    publishDir: build
+    staticPublishPath: build
     
     # --- REGLA DE REESCRITURA (CRÍTICO para SPAs) ---
-    # Redirige todas las peticiones al index.html para que el enrutamiento de React funcione.
     routes:
       - type: rewrite
-        source: /*
+        source: "/*"
         destination: /index.html
         
     envVars:
