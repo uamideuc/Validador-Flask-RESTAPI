@@ -4,7 +4,7 @@ Database models and connection utilities
 import sqlite3
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from contextlib import contextmanager
 
@@ -105,7 +105,7 @@ class DatabaseManager:
             variables_json = json.dumps(variables) if variables else None
             
             # Calculate expiration (24 hours from now)
-            expires_at = datetime.utcnow() + timedelta(hours=24)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
             
             cursor.execute('''
                 INSERT INTO uploads (session_id, filename, file_path, file_size, expires_at, sheet_name, variables_json)
@@ -148,7 +148,7 @@ class DatabaseManager:
             categorization_json = json.dumps(categorization)
             
             # Calculate expiration (24 hours from now)
-            expires_at = datetime.utcnow() + timedelta(hours=24)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
             
             cursor.execute('''
                 INSERT INTO validation_sessions (upload_id, session_id, categorization_json, expires_at)
@@ -198,7 +198,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             # Calculate expiration (24 hours from now)
-            expires_at = datetime.utcnow() + timedelta(hours=24)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
             
             cursor.execute('''
                 INSERT INTO exports (validation_session_id, session_id, export_type, file_path, expires_at)
@@ -224,10 +224,10 @@ class DatabaseManager:
             
             # Get files to delete
             cursor.execute('''
-                SELECT file_path FROM uploads WHERE expires_at < datetime('now')
+                SELECT file_path FROM uploads WHERE expires_at < ?
                 UNION
-                SELECT file_path FROM exports WHERE expires_at < datetime('now')
-            ''')
+                SELECT file_path FROM exports WHERE expires_at < ?
+            ''', (datetime.now(timezone.utc), datetime.now(timezone.utc)))
             
             files_to_delete = cursor.fetchall()
             deleted_files = 0
@@ -243,13 +243,13 @@ class DatabaseManager:
                         print(f"Error deleting file {file_path}: {str(e)}")
             
             # Delete expired records
-            cursor.execute('DELETE FROM exports WHERE expires_at < datetime("now")')
+            cursor.execute('DELETE FROM exports WHERE expires_at < ?', (datetime.now(timezone.utc),))
             deleted_exports = cursor.rowcount
             
-            cursor.execute('DELETE FROM validation_sessions WHERE expires_at < datetime("now")')
+            cursor.execute('DELETE FROM validation_sessions WHERE expires_at < ?', (datetime.now(timezone.utc),))
             deleted_validation_sessions = cursor.rowcount
             
-            cursor.execute('DELETE FROM uploads WHERE expires_at < datetime("now")')
+            cursor.execute('DELETE FROM uploads WHERE expires_at < ?', (datetime.now(timezone.utc),))
             deleted_uploads = cursor.rowcount
             
             conn.commit()
