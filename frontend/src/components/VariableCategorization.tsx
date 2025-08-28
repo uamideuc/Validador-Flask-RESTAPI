@@ -20,6 +20,7 @@ import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Visibilit
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import DataPreview from './DataPreview';
+import SingleInstrumentConfirmation from './SingleInstrumentConfirmation';
 
 interface Variable {
   name: string;
@@ -201,6 +202,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   );
 
   const [showPreview, setShowPreview] = useState(false);
+  const [showSingleInstrumentConfirmation, setShowSingleInstrumentConfirmation] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -243,8 +245,10 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       return 'Debe asignar al menos una variable como identificador de ítem';
     }
     
-    if (categorizedVariables.instrument_vars.length === 0) {
-      return 'Debe asignar al menos una variable de instrumento';
+    // Solo validar variables de instrumento si NO estamos en modo single instrument
+    if (categorizedVariables.instrument_vars.length === 0 && !showSingleInstrumentConfirmation) {
+      // Detectar caso de instrumento único y mostrar confirmación
+      return null; // No retornar error, manejar con confirmación
     }
     
     return null;
@@ -257,6 +261,17 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       return;
     }
 
+    // Detectar caso de instrumento único (no hay variables de instrumento asignadas)
+    if (categorizedVariables.instrument_vars.length === 0) {
+      setShowSingleInstrumentConfirmation(true);
+      return;
+    }
+
+    // Proceder con categorización normal
+    proceedWithCategorization();
+  };
+
+  const proceedWithCategorization = () => {
     // Move any remaining uncategorized variables to "other_vars"
     const finalCategorization = { ...categorizedVariables };
     if (uncategorizedVariables.length > 0) {
@@ -278,6 +293,18 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     };
 
     onCategorization(categorizationData);
+  };
+
+  const handleSingleInstrumentConfirm = () => {
+    setShowSingleInstrumentConfirmation(false);
+    // Proceder sin variables de instrumento (backend maneja este caso automáticamente)
+    proceedWithCategorization();
+  };
+
+  const handleSingleInstrumentCancel = () => {
+    setShowSingleInstrumentConfirmation(false);
+    // Usuario decidió especificar variables, mantener el estado actual
+    setError('Por favor, asigne al menos una variable de instrumento o configure todas las variables necesarias.');
   };
 
   const totalCategorized = Object.values(categorizedVariables).reduce((sum, vars) => sum + vars.length, 0);
@@ -411,6 +438,17 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
             Guardar Categorización y Continuar
           </Button>
         </Box>
+
+        {/* Single Instrument Confirmation Dialog */}
+        <SingleInstrumentConfirmation
+          open={showSingleInstrumentConfirmation}
+          onConfirm={handleSingleInstrumentConfirm}
+          onCancel={handleSingleInstrumentCancel}
+          totalVariables={totalVariables}
+          itemIdVariables={categorizedVariables.item_id_vars.map(v => v.name)}
+          metadataVariables={categorizedVariables.metadata_vars.map(v => v.name)}
+          classificationVariables={categorizedVariables.classification_vars.map(v => v.name)}
+        />
       </Box>
     </DndProvider>
   );
