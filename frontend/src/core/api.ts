@@ -190,7 +190,8 @@ export class ApiService {
   }
 
   static async runValidation(sessionId: number): Promise<{ success: boolean; validation_report?: any; error?: string }> {
-    const response = await axios.post('/api/validation/run', {
+    // Use new ToolKit API
+    const response = await axios.post('/api/tools/ensamblaje/run', {
       session_id: sessionId
     }, {
       headers: {
@@ -250,6 +251,42 @@ export class ApiService {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
+  }
+
+  // ToolKit API methods
+  static async getAvailableTools(): Promise<{ success: boolean; tools?: any; error?: string }> {
+    const response = await axios.get('/api/tools/available');
+    return response.data;
+  }
+
+  static async runToolValidation(toolName: string, sessionId: number): Promise<{ success: boolean; validation_report?: any; error?: string }> {
+    const response = await axios.post(`/api/tools/${toolName}/run`, {
+      session_id: sessionId
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
+  }
+
+  static async exportToolData(toolName: string, validationSessionId: number, exportType: string): Promise<{ success: boolean; export_id?: number; error?: string }> {
+    const response = await axios.post(`/api/tools/${toolName}/export`, {
+      validation_session_id: validationSessionId,
+      export_type: exportType
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
+  }
+
+  static async getToolMetadata(toolName: string): Promise<{ success: boolean; metadata?: any; error?: string }> {
+    const response = await axios.get(`/api/tools/${toolName}/metadata`);
+    return response.data;
   }
 }
 

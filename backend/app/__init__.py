@@ -200,8 +200,8 @@ def create_app():
     # SECURITY: Initialize database if not in testing mode
     if not app.config.get('TESTING'):
         try:
-            from app.models.database import db_manager
-            from app.models.session_model import SessionManager
+            from app.core.database import db_manager
+            from app.core.session_model import SessionManager
             
             # Test database connection and session management
             session_manager = SessionManager(db_manager.db_path)
@@ -269,7 +269,7 @@ def create_app():
         """Health check with security status"""
         try:
             # Test database connection
-            from app.models.database import db_manager
+            from app.core.database import db_manager
             with db_manager.get_connection():
                 db_status = 'healthy'
         except:

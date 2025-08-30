@@ -68,10 +68,28 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     handleNext();
   };
 
-  const handleCategorizationComplete = (data: any) => {
-    setValidationResults(data);
+  const handleCategorizationComplete = async (data: any) => {
+    setIsLoading(true);
     setError('');
-    handleNext();
+    
+    try {
+      // Import ApiService with new ToolKit methods
+      const { default: ApiService } = await import('../../core/api');
+      
+      // Use new ToolKit API for validation
+      const validationResult = await ApiService.runToolValidation('ensamblaje', data.validation_session_id);
+      
+      if (validationResult.success) {
+        setValidationResults(validationResult);
+        handleNext();
+      } else {
+        setError(validationResult.error || 'Error en validación');
+      }
+    } catch (error) {
+      setError('Error ejecutando validación con ToolKit');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleReset = () => {
@@ -129,7 +147,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       case 3:
         return validationResults ? (
           <ValidationReport
-            validationData={validationResults}
+            validationData={validationResults.validation_report}
             onBack={handleBack}
             onReset={handleReset}
           />
