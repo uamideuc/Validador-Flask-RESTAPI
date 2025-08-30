@@ -34,9 +34,10 @@ interface EnsamblajeValidatorProps {
 const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) => {
   const { isAuthenticated, sessionId: authSessionId } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
-  const [uploadData, setUploadData] = useState<any>(null);
+  const [uploadId, setUploadId] = useState<number | null>(null);
   const [parseData, setParseData] = useState<any>(null);
   const [validationResults, setValidationResults] = useState<any>(null);
+  const [validationSessionId, setValidationSessionId] = useState<number | null>(null);
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,19 +57,19 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     setActiveStep((prevStep) => prevStep - 1);
   };
 
-  const handleUploadSuccess = (data: any) => {
-    setUploadData(data);
+  const handleFileUploaded = (data: any) => {
+    setUploadId(data.upload_id);
     setError('');
     handleNext();
   };
 
-  const handleParseSuccess = (data: any) => {
+  const handleFileParsed = (data: any) => {
     setParseData(data);
     setError('');
     handleNext();
   };
 
-  const handleCategorizationComplete = async (data: any) => {
+  const handleCategorizationComplete = async (categorizationData: any) => {
     setIsLoading(true);
     setError('');
     
@@ -76,17 +77,69 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       // Import ApiService with new ToolKit methods
       const { default: ApiService } = await import('../../core/api');
       
-      // Use new ToolKit API for validation
-      const validationResult = await ApiService.runToolValidation('ensamblaje', data.validation_session_id);
+      console.log('Categorization received:', categorizationData);
+      console.log('Upload ID:', uploadId);
+      
+      // First, save the categorization to get validation_session_id
+      if (!uploadId) {
+        throw new Error('Upload ID not available');
+      }
+      
+      const saveResult = await ApiService.saveCategorization(uploadId, categorizationData);
+      console.log('Save categorization result:', saveResult);
+      
+      if (!saveResult.success) {
+        throw new Error(saveResult.message || 'Error saving categorization');
+      }
+      
+      // Now use the validation_session_id for ToolKit validation
+      const validationResult = await ApiService.runToolValidation('ensamblaje', saveResult.validation_session_id);
+      console.log('Validation result:', validationResult);
       
       if (validationResult.success) {
         setValidationResults(validationResult);
+        setValidationSessionId(saveResult.validation_session_id);
         handleNext();
       } else {
         setError(validationResult.error || 'Error en validación');
       }
-    } catch (error) {
-      setError('Error ejecutando validación con ToolKit');
+    } catch (error: any) {
+      console.error('Error in categorization flow:', error);
+      setError(error.message || 'Error ejecutando validación con ToolKit');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExport = async (exportType: string) => {
+    if (!validationSessionId) {
+      setError('No hay sesión de validación disponible para exportar');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      console.log('Export requested:', exportType);
+      console.log('Using validation session ID:', validationSessionId);
+      
+      // Import ApiService with ToolKit export methods
+      const { default: ApiService } = await import('../../core/api');
+      
+      // Use ToolKit export endpoint
+      const exportResult = await ApiService.exportToolData('ensamblaje', validationSessionId, exportType);
+      console.log('Export result:', exportResult);
+      
+      if (exportResult.success && exportResult.export_id) {
+        // Download the generated file
+        await ApiService.downloadExport(exportResult.export_id);
+      } else {
+        setError(exportResult.error || 'Error generando archivo de exportación');
+      }
+    } catch (error: any) {
+      console.error('Error in export flow:', error);
+      setError(error.message || 'Error ejecutando exportación');
     } finally {
       setIsLoading(false);
     }
@@ -94,9 +147,10 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
 
   const handleReset = () => {
     setActiveStep(0);
-    setUploadData(null);
+    setUploadId(null);
     setParseData(null);
     setValidationResults(null);
+    setValidationSessionId(null);
     setError('');
   };
 
@@ -120,36 +174,34 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       case 0:
         return (
           <FileUpload
-            onUploadSuccess={handleUploadSuccess}
-            onError={handleError}
-            sessionId={currentSessionId}
+            onFileUploaded={handleFileUploaded}
+            onFileParsed={handleFileParsed}
           />
         );
       case 1:
-        return uploadData ? (
+        return uploadId ? (
           <DataPreview
-            uploadData={uploadData}
-            onParseSuccess={handleParseSuccess}
-            onError={handleError}
-            onNext={handleNext}
-            onBack={handleBack}
+            uploadId={uploadId}
+            onClose={handleNext}
           />
         ) : null;
       case 2:
         return parseData ? (
           <VariableCategorization
-            parseData={parseData}
-            onCategorizationComplete={handleCategorizationComplete}
-            onError={handleError}
-            onBack={handleBack}
+            variables={parseData.variables}
+            sampleValues={parseData.sample_values}
+            onCategorization={handleCategorizationComplete}
+            uploadId={uploadId!}
+            sheetName={parseData.sheet_name}
           />
         ) : null;
       case 3:
         return validationResults ? (
           <ValidationReport
             validationData={validationResults.validation_report}
-            onBack={handleBack}
-            onReset={handleReset}
+            onExport={handleExport}
+            sessionId={currentSessionId}
+            validationSessionId={validationSessionId}
           />
         ) : null;
       default:
@@ -191,6 +243,40 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
 
         <Box sx={{ minHeight: 400 }}>
           {renderStepContent(activeStep)}
+        </Box>
+
+        {/* Navigation Buttons */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
+          <Button
+            variant="outlined"
+            onClick={handleBack}
+            disabled={activeStep === 0 || isLoading}
+            startIcon={<span>←</span>}
+          >
+            Paso Anterior
+          </Button>
+          
+          <Typography variant="body2" color="text.secondary">
+            Paso {activeStep + 1} de {steps.length}
+          </Typography>
+          
+          {activeStep < steps.length - 1 && (
+            <Button
+              variant="outlined"
+              onClick={handleNext}
+              disabled={isLoading || 
+                       (activeStep === 0 && !uploadId) || 
+                       (activeStep === 1 && !parseData) ||
+                       (activeStep === 2 && !validationResults)}
+              endIcon={<span>→</span>}
+            >
+              Siguiente Paso
+            </Button>
+          )}
+          
+          {activeStep === steps.length - 1 && (
+            <div /> // Spacer
+          )}
         </Box>
 
         {activeStep === steps.length - 1 && (

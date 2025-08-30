@@ -6,7 +6,7 @@ import schedule
 import time
 import threading
 from datetime import datetime
-from app.models.database import db_manager
+from app.core.database import db_manager
 from app.core.session_model import SessionManager
 
 

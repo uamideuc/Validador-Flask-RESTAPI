@@ -10,6 +10,7 @@ from ..tools import get_toolkit, get_available_tools
 import pandas as pd
 import json
 import os
+from dataclasses import asdict
 
 bp = Blueprint('tool_runner', __name__, url_prefix='/api/tools')
 
@@ -41,7 +42,7 @@ def list_available_tools():
 
 @bp.route('/<tool_name>/run', methods=['POST'])
 @jwt_required()
-@require_session_ownership
+@require_session_ownership('validation')
 def run_tool_validation(tool_name):
     """Run validation using specified tool"""
     try:
@@ -66,14 +67,14 @@ def run_tool_validation(tool_name):
                 'error': 'Sesión de validación no encontrada'
             }), 404
         
-        if validation_session.session_id != session_id:
+        if validation_session['session_id'] != session_id:
             return jsonify({
                 'success': False,
                 'error': 'Sin permisos para acceder a esta sesión'
             }), 403
         
         # Load data from file
-        file_path = validation_session.file_path
+        file_path = validation_session['file_path']
         if not os.path.exists(file_path):
             return jsonify({
                 'success': False,
@@ -87,7 +88,9 @@ def run_tool_validation(tool_name):
             data_df = pd.read_excel(file_path)
         
         # Parse categorization
-        categorization_dict = json.loads(validation_session.categorization)
+        categorization_dict = validation_session['categorization']
+        if isinstance(categorization_dict, str):
+            categorization_dict = json.loads(categorization_dict)
         categorization = VariableCategorization(**categorization_dict)
         
         # Get and initialize toolkit
@@ -109,12 +112,15 @@ def run_tool_validation(tool_name):
         # Run validation
         validation_report = toolkit.run_validation()
         
+        # Convert validation report to serializable dict
+        validation_report_dict = asdict(validation_report)
+        
         # Save validation results to database
-        db.update_validation_results(validation_session_id, validation_report.__dict__)
+        db.update_validation_results(validation_session_id, validation_report_dict)
         
         return jsonify({
             'success': True,
-            'validation_report': validation_report.__dict__,
+            'validation_report': validation_report_dict,
             'session_id': validation_session_id
         })
         
@@ -127,7 +133,7 @@ def run_tool_validation(tool_name):
 
 @bp.route('/<tool_name>/export', methods=['POST'])
 @jwt_required()
-@require_session_ownership
+@require_session_ownership('validation')
 def export_tool_data(tool_name):
     """Export data using specified tool"""
     try:
@@ -153,21 +159,23 @@ def export_tool_data(tool_name):
                 'error': 'Sesión de validación no encontrada'
             }), 404
         
-        if validation_session.session_id != session_id:
+        if validation_session['session_id'] != session_id:
             return jsonify({
                 'success': False,
                 'error': 'Sin permisos para acceder a esta sesión'
             }), 403
         
         # Load data
-        file_path = validation_session.file_path
+        file_path = validation_session['file_path']
         if file_path.endswith('.csv'):
             data_df = pd.read_csv(file_path)
         else:
             data_df = pd.read_excel(file_path)
         
         # Parse categorization
-        categorization_dict = json.loads(validation_session.categorization)
+        categorization_dict = validation_session['categorization']
+        if isinstance(categorization_dict, str):
+            categorization_dict = json.loads(categorization_dict)
         categorization = VariableCategorization(**categorization_dict)
         
         # Get and initialize toolkit
@@ -217,4 +225,117 @@ def get_tool_metadata(tool_name):
         return jsonify({
             'success': False,
             'error': f'Error obteniendo metadata: {str(e)}'
+        }), 500
+
+@bp.route('/<tool_name>/variable-values', methods=['POST'])
+@jwt_required()
+@require_session_ownership('validation')
+def get_variable_values(tool_name):
+    """Get detailed variable values for classification analysis"""
+    try:
+        session_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or 'validation_session_id' not in data or 'variable' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'validation_session_id y variable requeridos'
+            }), 400
+        
+        validation_session_id = data['validation_session_id']
+        variable = data['variable']
+        instrument = data.get('instrument', None)
+        
+        # Get validation session
+        db = get_db_manager()
+        validation_session = db.get_validation_session(validation_session_id)
+        
+        if not validation_session:
+            return jsonify({
+                'success': False,
+                'error': 'Sesión de validación no encontrada'
+            }), 404
+        
+        if validation_session['session_id'] != session_id:
+            return jsonify({
+                'success': False,
+                'error': 'Sin permisos para acceder a esta sesión'
+            }), 403
+        
+        # Load data
+        file_path = validation_session['file_path']
+        if file_path.endswith('.csv'):
+            data_df = pd.read_csv(file_path)
+        else:
+            data_df = pd.read_excel(file_path)
+        
+        # Parse categorization
+        categorization_dict = validation_session['categorization']
+        if isinstance(categorization_dict, str):
+            categorization_dict = json.loads(categorization_dict)
+        categorization = VariableCategorization(**categorization_dict)
+        
+        # Get and initialize toolkit
+        toolkit = get_toolkit(tool_name, session_id)
+        if not toolkit:
+            return jsonify({
+                'success': False,
+                'error': f'Herramienta {tool_name} no encontrada'
+            }), 404
+        
+        toolkit.initialize(data_df, categorization)
+        
+        # Get variable values using toolkit
+        values_data = toolkit.get_variable_values(variable, instrument)
+        
+        return jsonify({
+            'success': True,
+            'values_data': values_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f'Error getting variable values for tool {tool_name}: {e}')
+        return jsonify({
+            'success': False,
+            'error': f'Error obteniendo valores de variable: {str(e)}'
+        }), 500
+
+@bp.route('/<tool_name>/download/<int:export_id>', methods=['GET'])
+@jwt_required()
+def download_tool_export(tool_name, export_id):
+    """Download file generated by ToolKit"""
+    try:
+        session_id = get_jwt_identity()
+        
+        # Get export record
+        db = get_db_manager()
+        export_record = db.get_export_record(export_id)
+        
+        if not export_record:
+            return jsonify({
+                'success': False,
+                'error': 'Archivo no encontrado'
+            }), 404
+        
+        if export_record['session_id'] != session_id:
+            return jsonify({
+                'success': False,
+                'error': 'Sin permisos para descargar este archivo'
+            }), 403
+        
+        file_path = export_record['file_path']
+        if not os.path.exists(file_path):
+            return jsonify({
+                'success': False,
+                'error': 'Archivo no existe en el sistema'
+            }), 404
+        
+        from flask import send_file
+        return send_file(file_path, as_attachment=True)
+        
+    except Exception as e:
+        current_app.logger.error(f'Error downloading file: {e}')
+        return jsonify({
+            'success': False,
+            'error': f'Error descargando archivo: {str(e)}'
         }), 500

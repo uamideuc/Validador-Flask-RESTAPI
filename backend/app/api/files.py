@@ -4,8 +4,8 @@ File upload and parsing routes with session-based security
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.exceptions import RequestEntityTooLarge
 from app.services.file_service import FileUploadService
-from app.models.database import db_manager, DatabaseManager
-from app.utils.session_auth import require_session_ownership, get_current_session_id, require_valid_session
+from app.core.database import db_manager, DatabaseManager
+from app.core.services.security_service import require_session_ownership, get_current_session_id, require_valid_session
 import os
 import pandas as pd
 

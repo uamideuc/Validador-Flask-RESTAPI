@@ -203,7 +203,7 @@ export class ApiService {
   }
 
   static async downloadExport(exportId: number, suggestedFilename?: string): Promise<void> {
-    const response = await axios.get(`/api/export/${exportId}/download`, {
+    const response = await axios.get(`/api/tools/ensamblaje/download/${exportId}`, {
       responseType: 'blob',
     });
 
@@ -262,6 +262,20 @@ export class ApiService {
   static async runToolValidation(toolName: string, sessionId: number): Promise<{ success: boolean; validation_report?: any; error?: string }> {
     const response = await axios.post(`/api/tools/${toolName}/run`, {
       session_id: sessionId
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
+  }
+
+  static async getToolVariableValues(toolName: string, validationSessionId: number, variable: string, instrument?: string): Promise<{ success: boolean; values_data?: any; error?: string }> {
+    const response = await axios.post(`/api/tools/${toolName}/variable-values`, {
+      validation_session_id: validationSessionId,
+      variable: variable,
+      instrument: instrument
     }, {
       headers: {
         'Content-Type': 'application/json',

@@ -19,13 +19,15 @@ import {
   Alert
 } from '@mui/material';
 import axios from 'axios';
+import ApiService from '../core/api';
 
 const ClassificationValuesModal = ({ 
   open, 
   onClose, 
   variable, 
   instrument, 
-  sessionId 
+  sessionId, 
+  validationSessionId 
 }) => {
   const [valuesData, setValuesData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -36,16 +38,13 @@ const ClassificationValuesModal = ({
     setError(null);
     
     try {
-      // Use axios instead of fetch to include JWT authentication automatically
-      const response = await axios.post(`/api/validation/${sessionId}/variable-values`, {
-        variable: variable,
-        instrument: instrument
-      });
+      // Use ToolKit API endpoint with validationSessionId
+      const response = await ApiService.getToolVariableValues('ensamblaje', validationSessionId, variable, instrument);
       
-      if (response.data.success) {
-        setValuesData(response.data.values_data);
+      if (response.success) {
+        setValuesData(response.values_data);
       } else {
-        throw new Error(response.data.error);
+        throw new Error(response.error);
       }
     } catch (error) {
       const errorMessage = error.response?.data?.error || error.message || 'Error al cargar valores de la variable';
@@ -58,13 +57,13 @@ const ClassificationValuesModal = ({
     } finally {
       setLoading(false);
     }
-  }, [variable, instrument, sessionId]);
+  }, [variable, instrument, sessionId, validationSessionId]);
 
   useEffect(() => {
-    if (open && variable && instrument && sessionId) {
+    if (open && variable && instrument && sessionId && validationSessionId) {
       fetchVariableValues();
     }
-  }, [open, variable, instrument, sessionId, fetchVariableValues]);
+  }, [open, variable, instrument, sessionId, validationSessionId, fetchVariableValues]);
 
   const handleClose = () => {
     setValuesData(null);
@@ -118,7 +117,7 @@ const ClassificationValuesModal = ({
                   variant="outlined" 
                 />
                 <Chip 
-                  label={`Valores únicos: ${valuesData.unique_values?.length || 0}`} 
+                  label={`Valores únicos: ${valuesData.unique_values || 0}`} 
                   color="secondary" 
                   variant="outlined" 
                 />
@@ -152,7 +151,7 @@ const ClassificationValuesModal = ({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {valuesData.unique_values?.map((item, index) => (
+                  {valuesData.values?.map((item, index) => (
                     <TableRow key={index}>
                       <TableCell>
                         <Typography variant="body2">

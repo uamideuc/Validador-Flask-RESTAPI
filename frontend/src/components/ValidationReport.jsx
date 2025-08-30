@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, Card, CardContent } from '@mui/material';
 import ClassificationValuesModal from './ClassificationValuesModal';
 
-const ValidationReport = ({ validationData, onExport, sessionId }) => {
+const ValidationReport = ({ validationData, onExport, sessionId, validationSessionId }) => {
   const [expandedSections, setExpandedSections] = useState(['summary']);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedVariable, setSelectedVariable] = useState(null);
@@ -450,7 +450,7 @@ const ValidationReport = ({ validationData, onExport, sessionId }) => {
           </Grid>
           <Grid item xs={12} md={4}>
             <button 
-              onClick={() => onExport('validation_pdf')}
+              onClick={() => onExport('validation_report_pdf')}
               style={{
                 width: '100%',
                 padding: '12px 24px',
@@ -479,6 +479,7 @@ const ValidationReport = ({ validationData, onExport, sessionId }) => {
         variable={selectedVariable}
         instrument={selectedInstrument}
         sessionId={sessionId}
+        validationSessionId={validationSessionId}
       />
     </Box>
   );

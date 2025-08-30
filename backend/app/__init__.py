@@ -214,27 +214,22 @@ def create_app():
     
     # SECURITY: Register blueprints with authentication
     from app.api import auth, files, tool_runner
-    from app.routes import validation, export
     
     # Authentication routes (must be registered first)
     app.register_blueprint(auth.bp)
     
-    # New API routes (plugin architecture)
+    # API routes (plugin architecture)
     app.register_blueprint(files.bp)
     app.register_blueprint(tool_runner.bp)
-    
-    # Legacy routes (temporarily maintained)
-    app.register_blueprint(validation.bp)
-    app.register_blueprint(export.bp)
     
     # SECURITY: Initialize automatic cleanup scheduler
     if not app.config.get('TESTING'):
         try:
-            from app.utils.cleanup_scheduler import start_cleanup_scheduler
+            from app.core.services.cleanup_service import start_cleanup_scheduler
             start_cleanup_scheduler()
             print("✅ Automatic cleanup scheduler started")
         except ImportError:
-            print("⚠️  Cleanup scheduler not available - create cleanup_scheduler.py")
+            print("⚠️  Cleanup scheduler not available - will create in core/services/")
     
     # SECURITY: Secure root route with environment info
     @app.route('/')
@@ -250,8 +245,7 @@ def create_app():
             'endpoints': {
                 'auth': '/api/auth/',
                 'files': '/api/files/',
-                'validation': '/api/validation/',
-                'export': '/api/export/'
+                'tools': '/api/tools/'
             },
             'security_features': [
                 'Institutional Key Authentication',
