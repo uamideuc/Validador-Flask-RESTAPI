@@ -213,13 +213,17 @@ def create_app():
                 raise e  # Fail fast in production
     
     # SECURITY: Register blueprints with authentication
-    from app.routes import files, validation, export, auth
+    from app.api import auth, files, tool_runner
+    from app.routes import validation, export
     
     # Authentication routes (must be registered first)
     app.register_blueprint(auth.bp)
     
-    # Application routes (protected by authentication)
+    # New API routes (plugin architecture)
     app.register_blueprint(files.bp)
+    app.register_blueprint(tool_runner.bp)
+    
+    # Legacy routes (temporarily maintained)
     app.register_blueprint(validation.bp)
     app.register_blueprint(export.bp)
     
