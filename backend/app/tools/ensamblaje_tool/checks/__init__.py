@@ -1,0 +1,1 @@
+# Checks específicos para EnsamblajeToolKit

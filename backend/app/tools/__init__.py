@@ -1,19 +1,26 @@
 # Tools Module - Plugin Architecture Core
 # Factory for dispatching to appropriate ToolKit implementations
 
-from .base_toolkit import BaseToolKit, ToolResult, ToolStatus
-from .tool_registry import ToolRegistry
-from .tool_factory import ToolFactory
-from .validation_toolkit import ValidationToolKit
+from .ensamblaje_tool import EnsamblajeToolKit
 
-# Auto-register available tools
-ToolRegistry.register_toolkit('instrument_validation', ValidationToolKit)
+def get_toolkit(tool_name: str, session_id: str):
+    """
+    Fábrica simple para crear ToolKits específicos
+    """
+    if tool_name == 'ensamblaje':
+        return EnsamblajeToolKit(session_id)
+    else:
+        raise ValueError(f"ToolKit '{tool_name}' no encontrado")
 
-__all__ = [
-    'BaseToolKit',
-    'ToolResult', 
-    'ToolStatus',
-    'ToolRegistry',
-    'ToolFactory',
-    'ValidationToolKit'
-]
+def get_available_tools():
+    """
+    Lista de herramientas disponibles
+    """
+    return {
+        'ensamblaje': {
+            'name': 'Validador de Instrumentos de Ensamblaje',
+            'description': 'Herramienta para validación de instrumentos educativos de ensamblaje'
+        }
+    }
+
+__all__ = ['EnsamblajeToolKit', 'get_toolkit', 'get_available_tools']

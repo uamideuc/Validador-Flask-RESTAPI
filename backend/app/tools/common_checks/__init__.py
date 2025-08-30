@@ -1,0 +1,1 @@
+# Checks reutilizables entre diferentes herramientas
