@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -33,6 +33,7 @@ interface VariableCategorizationProps {
   onCategorization: (categorization: any) => void;
   uploadId: number;
   sheetName?: string;
+  savedCategorization?: any; // Estado persistido para restaurar categorización anterior
 }
 
 interface CategoryConfig {
@@ -185,6 +186,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   onCategorization,
   uploadId,
   sheetName,
+  savedCategorization,
 }) => {
   const [categorizedVariables, setCategorizedVariables] = useState<Record<string, Variable[]>>({
     instrument_vars: [],
@@ -205,6 +207,51 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const [showSingleInstrumentConfirmation, setShowSingleInstrumentConfirmation] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+
+  // Restaurar estado guardado cuando existe savedCategorization
+  useEffect(() => {
+    if (savedCategorization) {
+      console.log('Restaurando categorización guardada:', savedCategorization);
+      
+      // Convertir categorización guardada a formato de Variables con sample values
+      const restoredCategorization: Record<string, Variable[]> = {
+        instrument_vars: [],
+        item_id_vars: [],
+        metadata_vars: [],
+        classification_vars: [],
+        other_vars: [],
+      };
+      
+      const categorizedNames = new Set<string>();
+      
+      // Restaurar cada categoría (other_vars no se persiste, así que permanece vacío)
+      Object.keys(restoredCategorization).forEach(categoryId => {
+        if (savedCategorization[categoryId] && Array.isArray(savedCategorization[categoryId])) {
+          restoredCategorization[categoryId] = savedCategorization[categoryId].map((varName: string) => {
+            categorizedNames.add(varName);
+            return {
+              name: varName,
+              sampleValues: sampleValues[varName] || []
+            };
+          });
+        }
+        // Si categoryId === 'other_vars', savedCategorization[categoryId] será undefined
+        // por lo que other_vars permanece como array vacío []
+      });
+      
+      // Calcular variables no categorizadas (las que no están en ninguna categoría guardada)
+      const remainingUncategorized = variables
+        .filter(varName => !categorizedNames.has(varName))
+        .map(varName => ({
+          name: varName,
+          sampleValues: sampleValues[varName] || []
+        }));
+      
+      // Actualizar estado
+      setCategorizedVariables(restoredCategorization);
+      setUncategorizedVariables(remainingUncategorized);
+    }
+  }, [savedCategorization, variables, sampleValues]);
 
   const handleDrop = useCallback((categoryId: string, variable: Variable) => {
     setError(null);
@@ -272,26 +319,25 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   };
 
   const proceedWithCategorization = () => {
-    // Move any remaining uncategorized variables to "other_vars"
-    const finalCategorization = { ...categorizedVariables };
-    if (uncategorizedVariables.length > 0) {
-      finalCategorization.other_vars = [
-        ...finalCategorization.other_vars,
-        ...uncategorizedVariables
-      ];
-      setUncategorizedVariables([]);
-      setCategorizedVariables(finalCategorization);
-    }
-
-    // Convert to the format expected by the API
+    // NO modificar estado UI - mantener uncategorized variables accesibles
+    // Solo calcular other_vars para envío al backend
+    
+    // Preparar categorización para API (incluye other_vars calculado)
     const categorizationData = {
-      instrument_vars: finalCategorization.instrument_vars.map(v => v.name),
-      item_id_vars: finalCategorization.item_id_vars.map(v => v.name),
-      metadata_vars: finalCategorization.metadata_vars.map(v => v.name),
-      classification_vars: finalCategorization.classification_vars.map(v => v.name),
-      other_vars: finalCategorization.other_vars.map(v => v.name),
+      instrument_vars: categorizedVariables.instrument_vars.map(v => v.name),
+      item_id_vars: categorizedVariables.item_id_vars.map(v => v.name),
+      metadata_vars: categorizedVariables.metadata_vars.map(v => v.name),
+      classification_vars: categorizedVariables.classification_vars.map(v => v.name),
+      // Calcular other_vars: variables explícitamente asignadas + uncategorized
+      other_vars: [
+        ...categorizedVariables.other_vars.map(v => v.name),
+        ...uncategorizedVariables.map(v => v.name)
+      ],
     };
 
+    console.log('Sending categorization to backend:', categorizationData);
+    console.log('UI state preserved - uncategorized count:', uncategorizedVariables.length);
+    
     onCategorization(categorizationData);
   };
 

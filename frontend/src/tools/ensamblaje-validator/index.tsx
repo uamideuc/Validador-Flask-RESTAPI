@@ -39,6 +39,9 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   const [validationSessionId, setValidationSessionId] = useState<number | null>(null);
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  // Persistencia de estado de categorización
+  const [savedCategorization, setSavedCategorization] = useState<any>(null);
+  const [hasCompletedValidation, setHasCompletedValidation] = useState(false);
 
   const currentSessionId = sessionId || authSessionId;
 
@@ -54,6 +57,8 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
 
   const handleBack = () => {
     setActiveStep((prevStep) => prevStep - 1);
+    // Limpiar error al retroceder
+    setError('');
   };
 
   const handleFileUploaded = (data: any) => {
@@ -90,6 +95,16 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
         throw new Error(saveResult.message || 'Error saving categorization');
       }
       
+      // GUARDAR categorización para persistencia (SOLO categorías reales, NO other_vars)
+      const categorizationForPersistence = {
+        instrument_vars: categorizationData.instrument_vars,
+        item_id_vars: categorizationData.item_id_vars,
+        metadata_vars: categorizationData.metadata_vars,
+        classification_vars: categorizationData.classification_vars,
+        // NO persistir other_vars - deben quedar como uncategorized para reasignación
+      };
+      setSavedCategorization(categorizationForPersistence);
+      
       // Now use the validation_session_id for ToolKit validation
       const validationResult = await ApiService.runToolValidation('ensamblaje', saveResult.validation_session_id);
       console.log('Validation result:', validationResult);
@@ -97,6 +112,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       if (validationResult.success) {
         setValidationResults(validationResult);
         setValidationSessionId(saveResult.validation_session_id);
+        setHasCompletedValidation(true);
         handleNext();
       } else {
         setError(validationResult.error || 'Error en validación');
@@ -149,6 +165,8 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     setParseData(null);
     setValidationResults(null);
     setValidationSessionId(null);
+    setSavedCategorization(null);
+    setHasCompletedValidation(false);
     setError('');
   };
 
@@ -179,6 +197,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
             onCategorization={handleCategorizationComplete}
             uploadId={uploadId!}
             sheetName={parseData.sheet_name}
+            savedCategorization={savedCategorization}
           />
         ) : null;
       case 2:
@@ -252,7 +271,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
               onClick={handleNext}
               disabled={isLoading || 
                        (activeStep === 0 && !parseData) || 
-                       (activeStep === 1 && !validationResults)}
+                       (activeStep === 1 && !hasCompletedValidation)}
               endIcon={<span>→</span>}
             >
               Siguiente Paso
