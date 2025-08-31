@@ -16,7 +16,7 @@ import {
   Divider,
   Tooltip
 } from '@mui/material';
-import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Visibility, VisibilityOff } from '@mui/icons-material';
+import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Visibility, VisibilityOff, RestartAlt } from '@mui/icons-material';
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import DataPreview from './DataPreview';
@@ -287,6 +287,34 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     handleDrop('other_vars', variable);
   }, [handleDrop]);
 
+  const handleClearAllCategorization = useCallback(() => {
+    // Recolectar todas las variables de todas las categorías
+    const allCategorizedVars: Variable[] = [];
+    Object.values(categorizedVariables).forEach(categoryVars => {
+      allCategorizedVars.push(...categoryVars);
+    });
+    
+    // Solo proceder si hay variables categorizadas
+    if (allCategorizedVars.length === 0) {
+      return;
+    }
+
+    // Mover todas las variables categorizadas de vuelta a uncategorized
+    setUncategorizedVariables(prev => [...prev, ...allCategorizedVars]);
+    
+    // Limpiar todas las categorías
+    setCategorizedVariables({
+      instrument_vars: [],
+      item_id_vars: [],
+      metadata_vars: [],
+      classification_vars: [],
+      other_vars: [],
+    });
+    
+    // Limpiar errores
+    setError(null);
+  }, [categorizedVariables]);
+
   const validateCategorization = (): string | null => {
     if (categorizedVariables.item_id_vars.length === 0) {
       return 'Debe asignar al menos una variable como identificador de ítem';
@@ -385,8 +413,8 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           </Box>
         </Paper>
 
-        {/* Data Preview Toggle */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+        {/* Control Buttons */}
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
           <Tooltip title={showPreview ? "Ocultar preview de datos" : "Ver preview de datos para verificar columnas"}>
             <Button
               variant={showPreview ? "contained" : "outlined"}
@@ -395,6 +423,19 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
               sx={{ minWidth: 200 }}
             >
               {showPreview ? 'Ocultar Preview' : 'Ver Preview de Datos'}
+            </Button>
+          </Tooltip>
+          
+          <Tooltip title="Mover todas las variables categorizadas de vuelta a sin categorizar">
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<RestartAlt />}
+              onClick={handleClearAllCategorization}
+              disabled={totalCategorized === 0}
+              sx={{ minWidth: 200 }}
+            >
+              Limpiar Categorización
             </Button>
           </Tooltip>
         </Box>
