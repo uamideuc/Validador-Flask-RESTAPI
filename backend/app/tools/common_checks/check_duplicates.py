@@ -6,6 +6,10 @@ import pandas as pd
 from typing import Dict, List
 from ...core.models import VariableCategorization, DuplicateValidationResult, DuplicateItem
 
+# Constantes para instrumento único
+SINGLE_INSTRUMENT_KEY = "default_instrument"
+SINGLE_INSTRUMENT_DISPLAY = "Toda la base de datos"
+
 def validate_duplicates(
     data: pd.DataFrame, 
     categorization: VariableCategorization
@@ -19,7 +23,7 @@ def validate_duplicates(
     instruments = _get_instruments(data, categorization)
     result.validation_parameters = {
         'item_id_variables': categorization.item_id_vars,
-        'instrument_variables': categorization.instrument_vars if categorization.instrument_vars else ['(toda la base como un instrumento)'],
+        'instrument_variables': categorization.instrument_vars if categorization.instrument_vars else [SINGLE_INSTRUMENT_DISPLAY],
         'validation_method': 'Búsqueda de IDs duplicados dentro de cada instrumento',
         'total_instruments_analyzed': len(instruments)
     }
@@ -43,7 +47,7 @@ def validate_duplicates(
             
             # Parse instrument key to get combination
             instrument_combination = {}
-            if instrument_key != 'default_instrument':
+            if instrument_key != SINGLE_INSTRUMENT_KEY:
                 for pair in instrument_key.split('|'):
                     key, value = pair.split(':', 1)
                     instrument_combination[key] = value
@@ -88,7 +92,7 @@ def _get_instruments(data: pd.DataFrame, categorization: VariableCategorization)
     Get instruments grouped by instrument variables combination
     """
     if not categorization.instrument_vars:
-        return {'default_instrument': data}
+        return {SINGLE_INSTRUMENT_KEY: data}
     
     instrument_groups = {}
     

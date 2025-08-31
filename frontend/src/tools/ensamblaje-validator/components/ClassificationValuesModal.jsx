@@ -20,6 +20,14 @@ import {
 } from '@mui/material';
 import ApiService from '../../../core/api';
 
+// Helper para mostrar nombres de instrumentos amigables al usuario
+const getInstrumentDisplayName = (instrumentKey) => {
+  if (instrumentKey === 'default_instrument') {
+    return 'Toda la base de datos';
+  }
+  return instrumentKey;
+};
+
 const ClassificationValuesModal = ({ 
   open, 
   onClose, 
@@ -82,7 +90,7 @@ const ClassificationValuesModal = ({
           Valores de la Variable: {variable}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Instrumento: {instrument}
+          Instrumento: {getInstrumentDisplayName(instrument)}
         </Typography>
       </DialogTitle>
       
@@ -111,7 +119,7 @@ const ClassificationValuesModal = ({
               </Typography>
               <Box display="flex" gap={2} flexWrap="wrap">
                 <Chip 
-                  label={`Total: ${valuesData.total_items} ítems`} 
+                  label={`Total: ${valuesData.total_count} observaciones`} 
                   color="primary" 
                   variant="outlined" 
                 />

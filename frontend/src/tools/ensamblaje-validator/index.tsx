@@ -18,7 +18,6 @@ import ValidationReport from './components/ValidationReport.jsx';
 
 const steps = [
   'Subir Archivo',
-  'Vista Previa', 
   'Categorizar Variables',
   'Validar y Reportar'
 ];
@@ -60,7 +59,6 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   const handleFileUploaded = (data: any) => {
     setUploadId(data.upload_id);
     setError('');
-    handleNext();
   };
 
   const handleFileParsed = (data: any) => {
@@ -174,13 +172,6 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
           />
         );
       case 1:
-        return uploadId ? (
-          <DataPreview
-            uploadId={uploadId}
-            onClose={handleNext}
-          />
-        ) : null;
-      case 2:
         return parseData ? (
           <VariableCategorization
             variables={parseData.variables}
@@ -190,7 +181,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
             sheetName={parseData.sheet_name}
           />
         ) : null;
-      case 3:
+      case 2:
         return validationResults ? (
           <ValidationReport
             validationData={validationResults.validation_report}
@@ -260,9 +251,8 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
               variant="outlined"
               onClick={handleNext}
               disabled={isLoading || 
-                       (activeStep === 0 && !uploadId) || 
-                       (activeStep === 1 && !parseData) ||
-                       (activeStep === 2 && !validationResults)}
+                       (activeStep === 0 && !parseData) || 
+                       (activeStep === 1 && !validationResults)}
               endIcon={<span>→</span>}
             >
               Siguiente Paso

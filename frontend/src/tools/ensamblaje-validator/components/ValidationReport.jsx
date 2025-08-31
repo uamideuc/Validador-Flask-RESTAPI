@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, Card, CardContent } from '@mui/material';
 import ClassificationValuesModal from './ClassificationValuesModal';
 
+// Helper para mostrar nombres de instrumentos amigables al usuario
+const getInstrumentDisplayName = (instrumentKey) => {
+  if (instrumentKey === 'default_instrument') {
+    return 'Toda la base de datos';
+  }
+  return instrumentKey;
+};
+
 const ValidationReport = ({ validationData, onExport, sessionId, validationSessionId }) => {
   const [expandedSections, setExpandedSections] = useState(['summary']);
   const [modalOpen, setModalOpen] = useState(false);
@@ -289,7 +297,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               {Object.entries(classificationValidation.unique_counts_per_instrument).map(([instrument, variables]) => (
                 <Box key={instrument} sx={{ mb: 3 }}>
                   <Typography variant="body1" fontWeight="bold" gutterBottom>
-                    {instrument}
+                    {getInstrumentDisplayName(instrument)}
                   </Typography>
                   <Grid container spacing={2}>
                     {Object.entries(variables || {}).map(([variable, count]) => (
@@ -361,7 +369,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               {Object.entries(classificationValidation.unique_counts_per_instrument).map(([instrument, variables]) => (
                 <Box key={instrument} sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                    {instrument}
+                    {getInstrumentDisplayName(instrument)}
                   </Typography>
                   <Grid container spacing={2}>
                     {Object.entries(variables || {}).map(([variable, count]) => (

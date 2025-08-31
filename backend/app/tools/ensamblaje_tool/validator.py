@@ -12,6 +12,7 @@ from ...core.models import (
 from ..common_checks.check_duplicates import validate_duplicates
 from .checks.check_metadata import validate_metadata_completeness
 from .checks.check_classification import analyze_classification_variables
+from .constants import SINGLE_INSTRUMENT_KEY
 
 class EnsamblajeValidator:
     """
@@ -117,7 +118,7 @@ class EnsamblajeValidator:
         Obtener instrumentos agrupados por variables de instrumento
         """
         if not categorization.instrument_vars:
-            return {'default_instrument': data}
+            return {SINGLE_INSTRUMENT_KEY: data}
         
         instrument_groups = {}
         

@@ -6,6 +6,7 @@ from typing import Dict, Any
 from ...core.models import VariableCategorization, ValidationReport
 from .validator import EnsamblajeValidator
 from .exporter import EnsamblajeExporter
+from .constants import get_instrument_display_name
 
 class EnsamblajeToolKit:
     """
@@ -84,6 +85,12 @@ class EnsamblajeToolKit:
         value_counts = filtered_data[variable].value_counts(dropna=False)
         values_data = []
         
+        # Calculate completeness statistics
+        total_rows = len(filtered_data)
+        empty_count = filtered_data[variable].isna().sum()
+        non_empty_count = total_rows - empty_count
+        completeness = round((non_empty_count / total_rows) * 100, 2) if total_rows > 0 else 0
+        
         for value, count in value_counts.items():
             # Get row indices for this value
             if pd.isna(value):
@@ -105,8 +112,10 @@ class EnsamblajeToolKit:
         return {
             'variable': variable,
             'instrument': instrument or 'all',
-            'total_count': len(filtered_data),
+            'total_count': total_rows,
             'unique_values': len(values_data),
+            'completeness': completeness,
+            'empty_count': int(empty_count),
             'values': values_data
         }
 

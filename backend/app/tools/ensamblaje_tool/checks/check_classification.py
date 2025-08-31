@@ -4,6 +4,7 @@ Check específico de variables de clasificación para instrumentos de ensamblaje
 import pandas as pd
 from typing import Dict
 from ....core.models import VariableCategorization, ClassificationValidationResult
+from ..constants import SINGLE_INSTRUMENT_KEY, SINGLE_INSTRUMENT_DISPLAY
 
 def analyze_classification_variables(
     data: pd.DataFrame, 
@@ -20,7 +21,7 @@ def analyze_classification_variables(
     # Add validation parameters info
     result.validation_parameters = {
         'classification_variables': categorization.classification_vars,
-        'instrument_variables': categorization.instrument_vars if categorization.instrument_vars else ['(toda la base como un instrumento)'],
+        'instrument_variables': categorization.instrument_vars if categorization.instrument_vars else [SINGLE_INSTRUMENT_DISPLAY],
         'validation_method': 'Análisis de valores únicos y completitud por instrumento',
         'total_instruments_analyzed': len(instruments),
         'total_items_analyzed': len(data)
@@ -111,7 +112,7 @@ def _get_instruments(data: pd.DataFrame, categorization: VariableCategorization)
     Get instruments grouped by instrument variables combination
     """
     if not categorization.instrument_vars:
-        return {'default_instrument': data}
+        return {SINGLE_INSTRUMENT_KEY: data}
     
     instrument_groups = {}
     
