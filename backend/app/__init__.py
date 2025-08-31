@@ -173,7 +173,7 @@ def create_app():
         """Log request information for security monitoring"""
         from flask import request
         
-        # Log suspicious requests to root (but ignore Steam)
+        # Log suspicious requests to root
         if request.path == '/' and request.method == 'POST':
             user_agent = request.headers.get('User-Agent', '')
             if 'Valve/Steam' not in user_agent:
@@ -201,7 +201,7 @@ def create_app():
     if not app.config.get('TESTING'):
         try:
             from app.core.database import db_manager
-            from app.core.session_model import SessionManager
+            from app.core.services.session_service import SessionManager
             
             # Test database connection and session management
             session_manager = SessionManager(db_manager.db_path)

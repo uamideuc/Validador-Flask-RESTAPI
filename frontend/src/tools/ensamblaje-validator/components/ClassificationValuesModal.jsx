@@ -18,7 +18,6 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import axios from 'axios';
 import ApiService from '../../../core/api';
 
 const ClassificationValuesModal = ({ 
@@ -57,7 +56,7 @@ const ClassificationValuesModal = ({
     } finally {
       setLoading(false);
     }
-  }, [variable, instrument, sessionId, validationSessionId]);
+  }, [variable, instrument, validationSessionId]);
 
   useEffect(() => {
     if (open && variable && instrument && sessionId && validationSessionId) {

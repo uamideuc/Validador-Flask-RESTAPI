@@ -429,7 +429,7 @@ def require_session_ownership(resource_type: str = 'upload'):
         @jwt_required()
         def decorated_function(*args, **kwargs):
             from app.core.database import db_manager
-            from app.core.session_model import SessionManager
+            from app.core.services.session_service import SessionManager
             
             current_session_id = get_jwt_identity()
             
@@ -501,7 +501,7 @@ def require_valid_session():
         @jwt_required()
         def decorated_function(*args, **kwargs):
             from app.core.database import db_manager
-            from app.core.session_model import SessionManager
+            from app.core.services.session_service import SessionManager
             
             current_session_id = get_jwt_identity()
             
@@ -598,7 +598,7 @@ class SessionContext:
     def __enter__(self):
         try:
             from app.core.database import db_manager
-            from app.core.session_model import SessionManager
+            from app.core.services.session_service import SessionManager
             
             self.session_id = get_jwt_identity()
             if self.session_id:

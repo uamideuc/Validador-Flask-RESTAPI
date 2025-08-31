@@ -7,7 +7,7 @@ import time
 import threading
 from datetime import datetime
 from app.core.database import db_manager
-from app.core.session_model import SessionManager
+from app.core.services.session_service import SessionManager
 
 
 def cleanup_expired_data():

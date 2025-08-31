@@ -154,11 +154,6 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     setError('');
   };
 
-  const handleError = (errorMessage: string) => {
-    setError(errorMessage);
-    setIsLoading(false);
-  };
-
   if (!isAuthenticated) {
     return (
       <Box sx={{ p: 3 }}>
