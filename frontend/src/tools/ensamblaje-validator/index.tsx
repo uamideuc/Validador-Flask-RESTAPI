@@ -11,10 +11,10 @@ import {
   Alert
 } from '@mui/material';
 import { useAuth } from '../../core/auth';
-import FileUpload from '../../components/FileUpload';
-import DataPreview from '../../components/DataPreview';
-import VariableCategorization from '../../components/VariableCategorization';
-import ValidationReport from '../../components/ValidationReport.jsx';
+import FileUpload from './components/FileUpload';
+import DataPreview from './components/DataPreview';
+import VariableCategorization from './components/VariableCategorization';
+import ValidationReport from './components/ValidationReport.jsx';
 
 const steps = [
   'Subir Archivo',

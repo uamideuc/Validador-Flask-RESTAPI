@@ -21,7 +21,7 @@ import {
   Security,
   Info
 } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../core/auth';
 
 const Login: React.FC = () => {
   const [accessKey, setAccessKey] = useState('');

@@ -23,7 +23,7 @@ import {
   Visibility as VisibilityIcon,
   Warning as WarningIcon
 } from '@mui/icons-material';
-import ApiService from '../services/api';
+import ApiService from '../../../services/api';
 
 interface DataPreviewProps {
   uploadId: number;

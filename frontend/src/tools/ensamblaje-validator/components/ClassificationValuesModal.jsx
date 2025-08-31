@@ -19,7 +19,7 @@ import {
   Alert
 } from '@mui/material';
 import axios from 'axios';
-import ApiService from '../core/api';
+import ApiService from '../../../core/api';
 
 const ClassificationValuesModal = ({ 
   open, 
