@@ -68,3 +68,6 @@ temp/
 *.log
 /backend/.env.backup
 /.kiro/
+
+# Legacy code moved during refactor
+Legacy/

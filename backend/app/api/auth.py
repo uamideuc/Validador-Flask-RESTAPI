@@ -4,7 +4,7 @@ Implements session-based authentication with institutional key
 """
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from app.core.session_model import SessionManager
+from app.core.services.session_service import SessionManager
 from app.core.database import db_manager
 from datetime import timedelta
 import os

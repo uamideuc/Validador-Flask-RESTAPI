@@ -1,6 +1,6 @@
+
 """
-Session Management System for Validador de Instrumentos
-Implements institutional key authentication with session-based isolation
+Session Management Service for Validador de Instrumentos
 """
 import sqlite3
 import secrets
@@ -8,7 +8,6 @@ import os
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from contextlib import contextmanager
-
 
 class SessionManager:
     """
@@ -21,12 +20,10 @@ class SessionManager:
         self.institutional_key = os.environ.get('INSTITUTIONAL_ACCESS_KEY')
         if not self.institutional_key:
             raise ValueError("INSTITUTIONAL_ACCESS_KEY environment variable must be set")
-        
         self.init_session_tables()
     
     @contextmanager
     def get_connection(self):
-        """Database connection context manager"""
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         try:
@@ -35,9 +32,7 @@ class SessionManager:
             conn.close()
     
     def init_session_tables(self):
-        """Initialize session-related tables"""
         with self.get_connection() as conn:
-            # Active sessions table
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS active_sessions (
                     session_id VARCHAR(64) PRIMARY KEY,
@@ -49,104 +44,40 @@ class SessionManager:
                     is_active BOOLEAN DEFAULT 1
                 )
             ''')
-            
-            # Indices for performance optimization
-            conn.execute('''
-                CREATE INDEX IF NOT EXISTS idx_sessions_expires ON active_sessions(expires_at)
-            ''')
-            conn.execute('''
-                CREATE INDEX IF NOT EXISTS idx_sessions_active ON active_sessions(is_active)
-            ''')
-            
+            conn.execute('''CREATE INDEX IF NOT EXISTS idx_sessions_expires ON active_sessions(expires_at)''')
             conn.commit()
     
     def validate_institutional_key(self, provided_key: str) -> bool:
-        """
-        Validate provided institutional access key
-        
-        Args:
-            provided_key: The key provided by the user
-            
-        Returns:
-            bool: True if key is valid, False otherwise
-        """
         return provided_key == self.institutional_key
     
     def create_session(self, client_ip: str, user_agent: str, session_duration_hours: int = 24) -> str:
-        """
-        Create new session and return session_id
-        
-        Args:
-            client_ip: Client IP address
-            user_agent: Client User-Agent string
-            session_duration_hours: Session duration in hours (default 24)
-            
-        Returns:
-            str: Unique session ID
-        """
-        # Generate secure session ID
         session_id = f"sess_{secrets.token_urlsafe(32)}"
         expires_at = datetime.utcnow() + timedelta(hours=session_duration_hours)
-        
         with self.get_connection() as conn:
             conn.execute('''
                 INSERT INTO active_sessions (session_id, expires_at, client_ip, user_agent)
                 VALUES (?, ?, ?, ?)
             ''', (session_id, expires_at, client_ip, user_agent))
             conn.commit()
-        
         return session_id
     
     def validate_session(self, session_id: str) -> bool:
-        """
-        Check if session is valid and active
-        
-        Args:
-            session_id: Session ID to validate
-            
-        Returns:
-            bool: True if session is valid and active, False otherwise
-        """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                SELECT session_id FROM active_sessions 
-                WHERE session_id = ? AND expires_at > datetime('now') AND is_active = 1
-            ''', (session_id,))
-            
-            session = cursor.fetchone()
-            
-            if session:
-                # Update last activity timestamp
-                cursor.execute('''
-                    UPDATE active_sessions 
-                    SET last_activity = CURRENT_TIMESTAMP 
-                    WHERE session_id = ?
-                ''', (session_id,))
+            cursor.execute("SELECT session_id FROM active_sessions WHERE session_id = ? AND expires_at > datetime('now') AND is_active = 1", (session_id,))
+            if cursor.fetchone():
+                cursor.execute("UPDATE active_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_id = ?", (session_id,))
                 conn.commit()
                 return True
-            
             return False
-    
+
     def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get session information
-        
-        Args:
-            session_id: Session ID to get info for
-            
-        Returns:
-            Dict[str, Any] or None: Session information if found, None otherwise
-        """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                SELECT * FROM active_sessions WHERE session_id = ?
-            ''', (session_id,))
-            
+            cursor.execute("SELECT * FROM active_sessions WHERE session_id = ?", (session_id,))
             session = cursor.fetchone()
             return dict(session) if session else None
-    
+
     def invalidate_session(self, session_id: str) -> bool:
         """
         Invalidate a specific session
@@ -164,7 +95,7 @@ class SessionManager:
             ''', (session_id,))
             conn.commit()
             return cursor.rowcount > 0
-    
+
     def cleanup_expired_sessions(self) -> int:
         """
         Remove expired sessions and return count of removed sessions

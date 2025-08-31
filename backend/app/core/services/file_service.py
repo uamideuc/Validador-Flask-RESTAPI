@@ -1,5 +1,6 @@
 """
-File upload and parsing service with security validation
+File Upload Service - Core Infrastructure
+Provides secure file upload, parsing, and validation capabilities for all ToolKits
 """
 import os
 import pandas as pd
@@ -9,10 +10,20 @@ from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 import uuid
 from datetime import datetime
-from app.services.file_security import FileSecurityValidator
+from .security_service import FileSecurityValidator
+
 
 class FileUploadService:
-    """Service for handling file uploads and parsing"""
+    """
+    Core service for handling file uploads and parsing across all ToolKits
+    
+    Features:
+    - Secure file upload with comprehensive validation
+    - Support for CSV, XLSX, XLS formats
+    - Security scanning for malware/macros
+    - File parsing with pandas integration
+    - Session-based file isolation
+    """
     
     ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
     MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
@@ -138,55 +149,6 @@ class FileUploadService:
                 'error_code': 'UPLOAD_ERROR'
             }
     
-    def upload_file_secure(self, file: FileStorage, session_id: str = None) -> Dict[str, Any]:
-        """
-        Secure upload method with optional session-based storage
-        This method moves files outside the web root for enhanced security
-        """
-        file_path = None
-        try:
-            # Call standard upload with security validation
-            upload_result = self.upload_file(file)
-            
-            if not upload_result['success']:
-                return upload_result
-            
-            original_path = upload_result['file_path']
-            
-            # Move to secure location outside web root if session_id provided
-            if session_id:
-                secure_folder = os.path.abspath(os.path.join(self.upload_folder, '..', '..', 'secure_uploads'))
-                os.makedirs(secure_folder, exist_ok=True)
-                
-                # Create session-specific subfolder
-                session_folder = os.path.join(secure_folder, f'session_{session_id}')
-                os.makedirs(session_folder, exist_ok=True)
-                
-                # Move file to secure location
-                secure_filename = os.path.basename(original_path)
-                secure_path = os.path.join(session_folder, secure_filename)
-                
-                os.rename(original_path, secure_path)
-                upload_result['file_path'] = secure_path
-                upload_result['secure_storage'] = True
-                upload_result['session_folder'] = session_folder
-            
-            return upload_result
-            
-        except Exception as e:
-            # Cleanup on error
-            if file_path and os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except:
-                    pass
-            
-            return {
-                'success': False,
-                'error': f'Error en upload seguro: {str(e)}',
-                'error_code': 'SECURE_UPLOAD_ERROR'
-            }
-    
     def get_sheet_names(self, file_path: str) -> List[str]:
         """
         Get sheet names from Excel file
@@ -231,11 +193,7 @@ class FileUploadService:
             else:
                 raise ValueError(f"Formato de archivo no soportado: {file_extension}")
             
-            # Validate DataFrame
-            if df.empty:
-                raise ValueError("El archivo está vacío o no contiene datos válidos")
-            
-            # Handle unnamed columns
+            # Handle unnamed columns (returns tuple: df, unnamed_columns_info)
             df, unnamed_columns_info = self._handle_unnamed_columns(df)
             
             # Get column information
@@ -268,40 +226,42 @@ class FileUploadService:
         except Exception as e:
             return {
                 'success': False,
-                'error': f"Error al procesar archivo: {str(e)}",
+                'error': f'Error al procesar archivo: {str(e)}',
                 'error_code': 'PARSE_ERROR'
             }
     
     def _parse_csv(self, file_path: str) -> pd.DataFrame:
-        """Parse CSV file with encoding detection"""
-        encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
+        """Parse CSV file with automatic encoding detection"""
+        encodings_to_try = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
         
-        for encoding in encodings:
+        for encoding in encodings_to_try:
             try:
                 df = pd.read_csv(file_path, encoding=encoding)
+                print(f"✅ CSV parsed successfully with encoding: {encoding}")
                 return df
             except UnicodeDecodeError:
                 continue
             except Exception as e:
-                if encoding == encodings[-1]:  # Last encoding attempt
-                    raise e
+                if encoding == encodings_to_try[-1]:  # Last encoding to try
+                    raise Exception(f"Error parsing CSV: {str(e)}")
                 continue
         
-        raise ValueError("No se pudo determinar la codificación del archivo CSV")
+        raise Exception("No se pudo determinar la codificación del archivo CSV")
     
     def _parse_excel(self, file_path: str, sheet_name: Optional[str] = None) -> pd.DataFrame:
-        """Parse Excel file"""
+        """Parse Excel file with optional sheet selection"""
         try:
             if sheet_name:
                 df = pd.read_excel(file_path, sheet_name=sheet_name)
             else:
-                # If no sheet specified, use the first sheet
-                df = pd.read_excel(file_path, sheet_name=0)
+                # Use first sheet by default
+                df = pd.read_excel(file_path)
             
+            print(f"✅ Excel parsed successfully. Sheet: {sheet_name or 'default'}")
             return df
             
         except Exception as e:
-            raise ValueError(f"Error al leer archivo Excel: {str(e)}")
+            raise Exception(f"Error parsing Excel file: {str(e)}")
     
     def _handle_unnamed_columns(self, df: pd.DataFrame) -> tuple:
         """
@@ -358,6 +318,46 @@ class FileUploadService:
             }
         
         return df_copy, unnamed_columns_info
+    
+    
+    def get_data_preview(self, file_path: str, sheet_name: Optional[str] = None, 
+                        start_row: int = 0, rows_per_page: int = 10) -> Dict[str, Any]:
+        """
+        Get paginated data preview from file
+        """
+        try:
+            # Parse file
+            parse_result = self.parse_file(file_path, sheet_name)
+            
+            if not parse_result['success']:
+                return parse_result
+            
+            df = parse_result['dataframe']
+            
+            # Get paginated data
+            end_row = start_row + rows_per_page
+            page_data = df.iloc[start_row:end_row]
+            
+            # Convert to records for JSON serialization
+            records = page_data.to_dict('records')
+            
+            return {
+                'success': True,
+                'data': records,
+                'columns': list(df.columns),
+                'start_row': start_row,
+                'rows_per_page': rows_per_page,
+                'total_rows': len(df),
+                'has_next_page': end_row < len(df),
+                'has_previous_page': start_row > 0
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error en vista previa: {str(e)}',
+                'error_code': 'PREVIEW_ERROR'
+            }
     
     def get_file_info(self, file_path: str) -> Dict[str, Any]:
         """Get basic file information"""
