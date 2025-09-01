@@ -25,71 +25,66 @@
 ## Estructura del Proyecto
 
 ```
-├── backend/                    # Flask API Seguro
+.
+├── backend/                                # Lógica del Servidor (API en Flask)
 │   ├── app/
-│   │   ├── __init__.py         # Factory de aplicación con configuración JWT
-│   │   ├── models/             # Modelos de datos y base de datos
-│   │   │   ├── __init__.py
-│   │   │   ├── data_models.py  # Modelos de datos (VariableCategorization, ValidationReport)
-│   │   │   ├── database.py     # Manager de base de datos SQLite con aislamiento
-│   │   │   └── session_model.py # Gestión de sesiones JWT
-│   │   ├── routes/             # Endpoints de API protegidos con JWT
-│   │   │   ├── __init__.py
-│   │   │   ├── auth.py         # Autenticación institucional
-│   │   │   ├── files.py        # Carga y procesamiento de archivos
-│   │   │   ├── validation.py   # Ejecución de validaciones
-│   │   │   └── export.py       # Exportación de datos y reportes
-│   │   ├── services/           # Lógica de negocio
-│   │   │   ├── __init__.py
-│   │   │   ├── file_service.py # Servicio de carga y parsing de archivos
-│   │   │   ├── file_security.py # Validación de seguridad de archivos
-│   │   │   ├── validation_engine.py # Motor de validación principal
-│   │   │   ├── data_normalizer.py # Normalización y exportación
-│   │   │   └── pdf_generator.py # Generación de reportes PDF
-│   │   └── utils/              # Utilidades de seguridad
-│   │       ├── session_auth.py # Decoradores de autorización
-│   │       └── cleanup_scheduler.py # Limpieza automática
-│   ├── tests/                  # Suite de tests completa (25+ tests)
-│   │   ├── __init__.py
-│   │   ├── test_app.py         # Tests de aplicación
-│   │   ├── test_api_files.py   # Tests de API de archivos
-│   │   ├── test_file_service.py # Tests de servicio de archivos
-│   │   ├── test_validation_engine.py # Tests del motor de validación
-│   │   ├── test_data_normalizer.py # Tests de normalización
-│   │   └── test_models.py      # Tests de modelos
-│   ├── uploads/                # Directorio temporal de archivos subidos
-│   ├── run.py                  # Punto de entrada del servidor de desarrollo
-│   ├── requirements.txt        # Dependencias de Python
-│   ├── activate.ps1           # Activación de entorno virtual
-│   ├── start_dev.ps1          # 🚀 Script de setup completo (NUEVO)
-│   ├── validador.db           # Base de datos SQLite
-│   └── .env                   # Variables de entorno (claves secretas)
-├── frontend/                   # React + TypeScript con Autenticación
+│   │   ├── __init__.py                     # Fábrica de la aplicación Flask
+│   │   ├── api/                            # Capa de API: Endpoints HTTP
+│   │   │   ├── __init__.py                 # Inicializador del módulo de API
+│   │   │   ├── auth.py                     # Endpoints para autenticación y sesión
+│   │   │   ├── files.py                    # Endpoints para carga y gestión de archivos
+│   │   │   └── tool_runner.py              # Endpoint genérico para ejecutar herramientas
+│   │   ├── core/                           # Capa Core: Infraestructura compartida
+│   │   │   ├── __init__.py                 # Inicializador del módulo core
+│   │   │   ├── database.py                 # Gestor de la base de datos (SQLite)
+│   │   │   ├── models.py                   # Modelos de datos (dataclasses)
+│   │   │   └── services/                   # Servicios transversales
+│   │   │       ├── __init__.py             # Inicializador de servicios
+│   │   │       ├── cleanup_service.py      # Servicio de limpieza automática de datos
+│   │   │       ├── file_service.py         # Servicio para subida y parseo de archivos
+│   │   │       ├── security_service.py     # Decoradores y validadores de seguridad
+│   │   │       └── session_service.py      # Servicio para gestión de sesiones
+│   │   └── tools/                          # Capa de Herramientas: Lógica de negocio (Plugins)
+│   │       ├── __init__.py                 # Fábrica y registro de ToolKits
+│   │       ├── common_checks/              # Validaciones reutilizables entre herramientas
+│   │       │   └── check_duplicates.py     # Lógica para la validación de duplicados
+│   │       └── ensamblaje_tool/            # ToolKit específico para "Ensamblaje"
+│   │           ├── __init__.py             # Define la interfaz del ToolKit
+│   │           ├── constants.py            # Constantes específicas de la herramienta
+│   │           ├── exporter.py             # Orquesta las exportaciones de la herramienta
+│   │           ├── validator.py            # Orquesta las validaciones de la herramienta
+│   │           ├── checks/                 # Validaciones específicas de la herramienta
+│   │           └── export_formats/         # Formatos de exportación específicos
+│   ├── tests/                              # Tests unitarios y de integración
+│   ├── uploads/                            # Directorio temporal para archivos subidos
+│   ├── run.py                              # Punto de entrada para iniciar el servidor
+│   ├── requirements.txt                    # Dependencias de Python
+│   └── ...
+├── frontend/                               # Interfaz de Usuario (React + TypeScript)
 │   ├── src/
-│   │   ├── App.tsx            # Componente principal con manejo de estado
-│   │   ├── index.tsx          # Punto de entrada de React
-│   │   ├── components/        # Componentes de UI
-│   │   │   ├── Login.tsx      # Pantalla de login profesional
-│   │   │   ├── FileUpload.tsx # Carga de archivos con drag-and-drop
-│   │   │   ├── DataPreview.tsx # Preview paginado de datos
-│   │   │   ├── VariableCategorization.tsx # Categorización drag-and-drop
-│   │   │   ├── ValidationReport.jsx # Reporte de validación profesional
-│   │   │   └── ClassificationValuesModal.jsx # Modal de valores detallados
-│   │   ├── contexts/
-│   │   │   └── AuthContext.tsx # Contexto de autenticación JWT
-│   │   ├── services/
-│   │   │   └── api.ts         # Cliente HTTP con manejo automático de tokens
-│   │   └── types/
-│   │       └── index.ts       # Definiciones de tipos TypeScript
+│   │   ├── App.tsx                         # Componente raíz, enrutador principal
+│   │   ├── index.tsx                       # Punto de entrada de la aplicación React
+│   │   ├── components/                     # Componentes de UI genéricos y reutilizables
+│   │   │   └── LoginForm.tsx               # Formulario de login
+│   │   ├── core/                           # Lógica central y compartida del frontend
+│   │   │   ├── api.ts                      # Cliente HTTP (axios) para el backend
+│   │   │   ├── auth.tsx                    # Contexto y lógica de autenticación
+│   │   │   └── types.ts                    # Definiciones de tipos TypeScript
+│   │   ├── pages/                          # Vistas principales de la aplicación
+│   │   │   ├── Login.tsx                   # Página de inicio de sesión
+│   │   │   └── Tool.tsx                    # Contenedor que carga la herramienta activa
+│   │   └── tools/                          # "Mini-aplicaciones" por cada herramienta
+│   │       └── ensamblaje-validator/
+│   │           ├── index.tsx               # Orquestador de la herramienta (lógica y estado)
+│   │           └── components/             # Componentes de UI específicos de la herramienta
+│   │               ├── FileUpload.tsx      # Componente para subir archivos
+│   │               ├── DataPreview.tsx     # Componente para previsualizar datos
+│   │               └── ...
 │   ├── public/
-│   │   └── index.html         # Template HTML principal
-│   ├── package.json           # Dependencias y scripts de npm
-│   ├── package-lock.json      # Lock de versiones exactas
-│   ├── tsconfig.json          # Configuración de TypeScript
-│   └── craco.config.js        # Configuración de build personalizada
-├── uploads/                    # Directorio de archivos temporales (raíz)
-├── README.md                  # Este archivo
-└── README_4dummys.md         # Guía simplificada para usuarios
+│   │   └── index.html                      # Template HTML principal
+│   ├── package.json                        # Dependencias y scripts de npm
+│   └── ...
+└── README.md                               # Documentación principal
 ```
 
 ## Desarrollo
@@ -136,65 +131,6 @@ Aplicación disponible en http://localhost:3000
 
 **Primera vez**: Ingresa tu clave institucional mostrada en los logs del backend
 
-### 🛠️ Opciones Avanzadas del Script
-
-```powershell
-# Limpiar completamente cache y dependencias
-.\backend\start_dev.ps1 -Clean
-
-# Solo verificar configuración (no iniciar)
-.\backend\start_dev.ps1 -VerifyOnly
-
-# Limpiar y verificar
-.\backend\start_dev.ps1 -Clean -VerifyOnly
-```
-
-### ⚙️ Configuración Manual (Alternativa)
-
-Si prefieres configurar paso a paso:
-
-1. **Crear entorno virtual:**
-```powershell
-cd backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
-
-2. **Instalar dependencias:**
-```powershell
-pip install -r requirements.txt
-```
-
-3. **Configurar ambiente:**
-```powershell
-.\setup_development.ps1
-```
-
-4. **Instalar frontend:**
-```bash
-cd frontend
-npm install
-```
-
-### 📋 Logs de Inicio Esperados
-
-**Backend:**
-```
-🛡️  Validador de Instrumentos - Secure Mode Enabled
-🌍 Environment: development
-🔑 Authentication: Required
-🔒 CORS: Configured
-⏰ Session Duration: 24 hours
-🔑 INSTITUTIONAL_ACCESS_KEY: tu-clave-aqui
-```
-
-**Frontend:**
-```
-webpack compiled successfully
-Local:   http://localhost:3000
-Network: http://192.168.x.x:3000
-```
-
 ### Tests
 
 ```bash
@@ -205,73 +141,6 @@ python -m pytest backend/tests/ -v
 cd frontend
 npm test
 ```
-
-## 🛠️ Tecnologías
-
-### Backend (Seguro)
-- **Framework**: Flask con Flask-JWT-Extended
-- **Procesamiento**: Python, Pandas, OpenPyXL
-- **Seguridad**: JWT, Session Management, File Security
-- **Base de datos**: SQLite con aislamiento de sesiones
-- **Limpieza**: Scheduler automático de archivos expirados
-
-### Frontend (Autenticado)
-- **Framework**: React con TypeScript
-- **UI**: Material-UI con componentes personalizados
-- **Interacción**: React DnD para drag-and-drop
-- **Autenticación**: Context API con manejo automático de JWT
-- **HTTP**: Axios con interceptors para tokens automáticos
-
-### Infraestructura
-- **Desarrollo**: Scripts PowerShell para configuración segura
-- **Producción**: Variables de entorno validadas y headers de seguridad
-- **Monitoreo**: Logs de seguridad y detección de requests sospechosas
-
-## 🎉 Estado del Desarrollo
-
-✅ **COMPLETADO - Sistema Seguro y Listo para Producción**
-
-### 🔐 Seguridad (NUEVA - Implementación Completa)
-- ✅ **Sistema de autenticación institucional** con JWT
-- ✅ **Gestión de sesiones** con aislamiento de datos por usuario
-- ✅ **Validación de archivos** con escaneo de seguridad y MIME
-- ✅ **Limpieza automática** de archivos y sesiones expiradas
-- ✅ **Headers de seguridad** y protección CORS
-- ✅ **Scripts de configuración** para desarrollo y producción
-- ✅ **Monitoreo de seguridad** con detección de requests maliciosas
-
-### 🖥️ Backend (Flask + Python) - Actualizado con Seguridad
-- ✅ Estructura del proyecto con módulos de seguridad
-- ✅ Modelos de datos con aislamiento de sesiones SQLite
-- ✅ Servicio de carga con validación de seguridad de archivos
-- ✅ API REST completamente protegida con JWT
-- ✅ Motor de validación con control de acceso por sesión
-- ✅ Generador de reportes con protección de datos
-- ✅ Normalizador y exportación con aislamiento de sesiones
-- ✅ Endpoints con autenticación y autorización completa
-- ✅ Manejo seguro de errores sin filtración de información
-- ✅ Tests comprehensivos actualizados (25+ tests pasando)
-
-### 🌐 Frontend (React + TypeScript) - Actualizado con Autenticación
-- ✅ **Sistema de login profesional** en español
-- ✅ **Context de autenticación** con manejo automático de JWT
-- ✅ **Interceptors HTTP** para tokens transparentes
-- ✅ Componente de carga de archivos con validación
-- ✅ Componente de categorización con protección de sesión
-- ✅ Componente de reporte con datos aislados por usuario
-- ✅ Integración completa del flujo autenticado
-- ✅ Interfaz Material-UI con mensajes en español
-- ✅ Manejo de errores de autenticación y autorización
-
-### 🚀 Funcionalidades Principales (Actualizadas)
-- 🔑 **Autenticación**: Login institucional con clave compartida
-- 👤 **Sesiones**: Aislamiento completo de datos por usuario
-- 📁 **Carga segura**: CSV, XLS, XLSX con escaneo de seguridad
-- 🏷️ **Categorización**: Drag-and-drop protegido por sesión
-- 🔍 **Validaciones**: Duplicados, metadata, clasificación (datos aislados)
-- 📊 **Reportes**: Visualización profesional de resultados propios
-- 📤 **Exportación**: Datos normalizados con protección de sesión
-- 🧹 **Limpieza**: Eliminación automática de datos expirados
 
 ## 🔌 API Endpoints (Todos Protegidos con JWT)
 
@@ -287,16 +156,12 @@ npm test
 - `POST /{id}/preview` - Preview paginado de datos
 - `POST /{id}/categorization` - Guardar categorización → Crear sesión de validación
 
-### ✅ Validación (`/api/validation/`) - Requiere JWT + Propiedad de Sesión
-- `POST /run` - Ejecutar validaciones
-- `GET /{session_id}/report` - Obtener reporte
-- `POST /{session_id}/variable-values` - Valores detallados de variables
-
-### 📤 Exportación (`/api/export/`) - Requiere JWT + Propiedad de Sesión
-- `POST /normalized` - Exportar datos normalizados
-- `POST /validation-excel/{id}` - Exportar Excel con errores marcados
-- `POST /validation-report/{id}` - Exportar reporte PDF
-- `GET /{export_id}/download` - Descargar archivo generado
+### ✅ Herramientas (`/api/tools/`) - Requiere JWT + Propiedad de Sesión
+- `GET /available` - Listar herramientas disponibles
+- `POST /{tool_name}/run` - Ejecutar validación de una herramienta
+- `POST /{tool_name}/export` - Exportar datos o reportes de una herramienta
+- `GET /{tool_name}/download/{export_id}` - Descargar archivo generado
+- `POST /{tool_name}/variable-values` - Obtener valores detallados de variables
 
 ---
 
@@ -306,3 +171,5 @@ npm test
 - **Aislamiento de sesiones**: Los usuarios solo pueden acceder a sus propios datos
 - **Expiración automática**: Sesiones y archivos se eliminan automáticamente después de 24 horas
 - **Validación de archivos**: Todos los uploads pasan por escaneo de seguridad
+
+---
