@@ -52,7 +52,6 @@ class ValidationExcelExporter:
             temp_dir = tempfile.gettempdir()
             file_path = os.path.join(temp_dir, filename)
             
-            # Create all sheets following legacy logic exactly
             annotated_data = self._create_annotated_data(original_data, validation_results)
             mapping_df = self._create_mapping_df(categorization)
             
@@ -190,7 +189,7 @@ class ValidationExcelExporter:
             for idx in missing_indices:
                 issues_data.append({
                     'Variable': variable,
-                    'Fila': idx + 1,  # +1 for Excel 1-based indexing
+                    'Fila': idx + 1,  # Adjust for 1-based indexing in Excel sheets.
                     'Problema': 'Valor faltante',
                     'Severidad': 'Error'
                 })

@@ -42,7 +42,6 @@ class NormalizedExcelExporter:
                 mapping_df = self._create_mapping_dataframe(name_mapping, categorization)
                 mapping_df.to_excel(writer, sheet_name='Mapeo_Variables', index=False)
             
-            # Registrar en database usando el mismo patrón que el exporter principal
             db = self._get_db_manager()
             export_id = db.create_export_record(
                 validation_session_id=validation_session_id,

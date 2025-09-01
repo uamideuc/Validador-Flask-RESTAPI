@@ -189,11 +189,6 @@ def parse_file(upload_id):
         variables = parse_result['columns']
         db.update_upload_variables(upload_id, variables)
         
-        # Update sheet name if provided
-        if sheet_name:
-            # We could add a method to update sheet name, for now we'll include it in response
-            pass
-        
         # Prepare response (exclude DataFrame from response)
         response_data = {
             'success': True,

@@ -92,7 +92,6 @@ def validate_metadata_completeness(
             completeness_percentage = (complete_rows / total_rows) * 100 if total_rows > 0 else 0
             completeness_stats[var] = completeness_percentage
             
-            # Get unique values summary (convert set to list for JSON serialization)
             unique_values = set(data[var].dropna().astype(str).unique())
             unique_values_summary[var] = smart_sort_values(list(unique_values))
         

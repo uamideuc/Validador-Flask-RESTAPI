@@ -262,7 +262,10 @@ class DatabaseManager:
             }
     
     def cleanup_old_records(self, days: int = 7):
-        """Clean up old records (older than specified days) - legacy method"""
+        """Clean up old records based on creation date, regardless of expiration status.
+        
+        Serves as a fallback to prevent orphaned data.
+        """
         with self.get_connection() as conn:
             cursor = conn.cursor()
             

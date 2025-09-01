@@ -195,7 +195,8 @@ def create_app():
     try:
         os.chmod(upload_folder, 0o750)  # Owner: rwx, Group: r-x, Others: none
     except:
-        pass  # Windows might not support chmod
+        # Attempt to set POSIX permissions; safely ignore errors on non-POSIX systems (like Windows).
+        pass
     
     # SECURITY: Initialize database if not in testing mode
     if not app.config.get('TESTING'):
