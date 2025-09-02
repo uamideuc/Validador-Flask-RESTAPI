@@ -32,7 +32,7 @@ const RespuestasValidator: React.FC = () => {
       <Paper elevation={1} sx={{ p: 3, mb: 3 }}>
         <Typography variant="body1" color="text.secondary" paragraph sx={{ textAlign: 'center' }}>
           Esta herramienta estará especializada en la validación y análisis de bases de datos 
-          que contienen respuestas de estudiantes a instrumentos educativos.
+          que contienen respuestas de participantes a instrumentos psicométricos.
         </Typography>
       </Paper>
 
