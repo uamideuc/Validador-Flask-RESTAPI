@@ -13,15 +13,10 @@ import {
   Alert,
   CircularProgress,
   Chip,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Tooltip
 } from '@mui/material';
 import {
-  ExpandMore as ExpandMoreIcon,
-  Visibility as VisibilityIcon,
-  Warning as WarningIcon
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import ApiService from '../../../core/api';
 
@@ -127,37 +122,6 @@ const DataPreview: React.FC<DataPreviewProps> = ({ uploadId, sheetName, onClose 
           </Button>
         )}
       </Box>
-
-      {/* Unnamed columns warning */}
-      {previewData.unnamed_columns_info.has_unnamed && (
-        <Accordion sx={{ mb: 2 }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Box display="flex" alignItems="center">
-              <WarningIcon color="warning" sx={{ mr: 1 }} />
-              <Typography variant="subtitle1">
-                Columnas sin nombre detectadas ({previewData.unnamed_columns_info.total_unnamed})
-              </Typography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Se encontraron columnas sin nombre. Se les han asignado nombres automáticamente para poder categorizarlas.
-            </Alert>
-            <Box>
-              {previewData.unnamed_columns_info.renamed_columns.map((col, index) => (
-                <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                  <Typography variant="body2" fontWeight="bold">
-                    Columna {col.column_index}: {col.original_name} → {col.new_name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Valores de muestra: {col.sample_values.join(', ') || 'Sin valores'}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </AccordionDetails>
-        </Accordion>
-      )}
 
       {/* Data table */}
       <Paper sx={{ mb: 2 }}>

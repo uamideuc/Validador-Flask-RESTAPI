@@ -16,15 +16,27 @@ import {
   Divider,
   Tooltip
 } from '@mui/material';
-import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Visibility, VisibilityOff, RestartAlt } from '@mui/icons-material';
+import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Visibility, VisibilityOff, RestartAlt, Warning as WarningIcon } from '@mui/icons-material';
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import DataPreview from './DataPreview';
 import SingleInstrumentConfirmation from './SingleInstrumentConfirmation';
+import ApiService from '../../../core/api';
 
 interface Variable {
   name: string;
   sampleValues: string[];
+}
+
+interface UnnamedColumnsInfo {
+  has_unnamed: boolean;
+  renamed_columns: Array<{
+    original_name: string;
+    new_name: string;
+    column_index: number;
+    sample_values: string[];
+  }>;
+  total_unnamed: number;
 }
 
 interface VariableCategorizationProps {
@@ -205,8 +217,25 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
   const [showPreview, setShowPreview] = useState(false);
   const [showSingleInstrumentConfirmation, setShowSingleInstrumentConfirmation] = useState(false);
+  const [unnamedColumnsInfo, setUnnamedColumnsInfo] = useState<UnnamedColumnsInfo | null>(null);
 
   const [error, setError] = useState<string | null>(null);
+
+  // Obtener información de columnas renombradas
+  useEffect(() => {
+    const fetchUnnamedColumnsInfo = async () => {
+      try {
+        const previewData = await ApiService.getDataPreview(uploadId, sheetName, 0, 1);
+        if (previewData.success && previewData.unnamed_columns_info) {
+          setUnnamedColumnsInfo(previewData.unnamed_columns_info);
+        }
+      } catch (error) {
+        console.warn('No se pudo obtener información de columnas renombradas:', error);
+      }
+    };
+
+    fetchUnnamedColumnsInfo();
+  }, [uploadId, sheetName]);
 
   // Restaurar estado guardado cuando existe savedCategorization
   useEffect(() => {
@@ -394,6 +423,37 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         <Typography variant="body1" color="text.secondary" gutterBottom>
           Arrastra las variables a las categorías correspondientes. Cada variable debe ser asignada según su función en el instrumento.
         </Typography>
+
+        {/* Unnamed columns warning */}
+        {unnamedColumnsInfo && unnamedColumnsInfo.has_unnamed && (
+          <Accordion sx={{ mb: 3 }}>
+            <AccordionSummary expandIcon={<ExpandMore />}>
+              <Box display="flex" alignItems="center">
+                <WarningIcon color="warning" sx={{ mr: 1 }} />
+                <Typography variant="subtitle1">
+                  Columnas sin nombre detectadas ({unnamedColumnsInfo.total_unnamed})
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Se encontraron columnas sin nombre. Se les han asignado nombres automáticamente para poder categorizarlas.
+              </Alert>
+              <Box>
+                {unnamedColumnsInfo.renamed_columns.map((col, index) => (
+                  <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">
+                      Columna {col.column_index} (sin nombre) → {col.new_name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Valores de muestra: {col.sample_values.join(', ') || 'Sin valores'}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        )}
 
         {/* Progress indicator */}
         <Paper sx={{ p: 2, mb: 3, backgroundColor: '#f5f5f5' }}>
