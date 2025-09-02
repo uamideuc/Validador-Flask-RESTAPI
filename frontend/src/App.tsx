@@ -2,15 +2,53 @@ import React from 'react';
 import { Container, Typography, Box, CircularProgress, AppBar, Toolbar, IconButton } from '@mui/material';
 import { Logout } from '@mui/icons-material';
 import { AuthProvider, useAuth } from './core/auth';
+import { ToolsProvider, useTools } from './core/ToolStateContext';
 import Login from './pages/Login';
+import Menu from './pages/Menu';
 import ToolPage from './pages/Tool';
+import ToolTabs from './components/navigation/ToolTabs';
 
 // Componente principal de la aplicación autenticada
 function AppContent() {
   const { logout } = useAuth();
+  const { state, dispatch, getToolStatus } = useTools();
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleToolSelect = (toolId: string) => {
+    dispatch({ type: 'SET_CURRENT_TOOL', payload: toolId });
+  };
+
+  const handleMenuClick = () => {
+    dispatch({ type: 'SET_CURRENT_TOOL', payload: null });
+  };
+
+  // Definir herramientas disponibles para los tabs
+  const availableTools = [
+    {
+      id: 'ensamblaje',
+      label: 'Validador de Ensamblaje',
+      icon: 'build' as const,
+      status: getToolStatus('ensamblaje'),
+      available: true
+    },
+    {
+      id: 'respuestas',
+      label: 'Validador de Respuestas',
+      icon: 'assessment' as const,
+      status: getToolStatus('respuestas'),
+      available: true // Clickeable para mostrar "en construcción"
+    }
+  ];
+
+  const renderMainContent = () => {
+    if (state.currentTool === null) {
+      return <Menu onToolSelect={handleToolSelect} />;
+    } else {
+      return <ToolPage currentTool={state.currentTool} />;
+    }
   };
 
   return (
@@ -31,19 +69,16 @@ function AppContent() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg">
-        <Box sx={{ my: 4 }}>
-          <Typography variant="h3" component="h1" gutterBottom align="center">
-            Validador de Instrumentos
-          </Typography>
-          <Typography variant="h6" component="h2" gutterBottom align="center" color="text.secondary">
-            Herramienta para validar bases de datos de instrumentos educativos
-          </Typography>
+      {/* Tool Navigation Tabs */}
+      <ToolTabs
+        currentTool={state.currentTool}
+        availableTools={availableTools}
+        onToolChange={handleToolSelect}
+        onMenuClick={handleMenuClick}
+      />
 
-          {/* Tool Page - New Architecture */}
-          <ToolPage />
-        </Box>
-      </Container>
+      {/* Main Content */}
+      {renderMainContent()}
     </>
   );
 }
@@ -74,11 +109,13 @@ function MainApp() {
   return <AppContent />;
 }
 
-// App principal con proveedor de autenticación
+// App principal con proveedores de autenticación y herramientas
 function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <ToolsProvider>
+        <MainApp />
+      </ToolsProvider>
     </AuthProvider>
   );
 }

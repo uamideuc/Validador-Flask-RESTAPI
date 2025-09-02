@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { 
   Box, 
   Paper, 
@@ -8,9 +8,12 @@ import {
   StepLabel, 
   Button, 
   CircularProgress,
-  Alert
+  Alert,
+  Chip,
+  Badge
 } from '@mui/material';
 import { useAuth } from '../../core/auth';
+import { useEnsamblajeState } from '../../core/ToolStateContext';
 import FileUpload from './components/FileUpload';
 import DataPreview from './components/DataPreview';
 import VariableCategorization from './components/VariableCategorization';
@@ -29,52 +32,62 @@ interface EnsamblajeValidatorProps {
 /**
  * Orquestador de UI y estado para la herramienta de validación de ensamblaje
  * Componente autocontenido que maneja todo el flujo de la herramienta
+ * Utiliza ToolStateContext para preservar estado entre navegaciones
  */
 const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) => {
   const { isAuthenticated, sessionId: authSessionId } = useAuth();
-  const [activeStep, setActiveStep] = useState(0);
-  const [uploadId, setUploadId] = useState<number | null>(null);
-  const [parseData, setParseData] = useState<any>(null);
-  const [validationResults, setValidationResults] = useState<any>(null);
-  const [validationSessionId, setValidationSessionId] = useState<number | null>(null);
-  const [error, setError] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  // Persistencia de estado de categorización
-  const [savedCategorization, setSavedCategorization] = useState<any>(null);
-  const [hasCompletedValidation, setHasCompletedValidation] = useState(false);
+  const { ensamblajeState, setEnsamblajeState, resetEnsamblajeState } = useEnsamblajeState();
+
+  // Extraer estado del context
+  const {
+    activeStep,
+    uploadId,
+    parseData,
+    validationResults,
+    validationSessionId,
+    savedCategorization,
+    hasCompletedValidation,
+    hasChangesAfterValidation,
+    error,
+    isLoading
+  } = ensamblajeState;
 
   const currentSessionId = sessionId || authSessionId;
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setError('Debe estar autenticado para usar esta herramienta');
+      setEnsamblajeState({ error: 'Debe estar autenticado para usar esta herramienta' });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, setEnsamblajeState]);
 
   const handleNext = () => {
-    setActiveStep((prevStep) => prevStep + 1);
+    setEnsamblajeState({ activeStep: activeStep + 1 });
   };
 
   const handleBack = () => {
-    setActiveStep((prevStep) => prevStep - 1);
-    // Limpiar error al retroceder
-    setError('');
+    setEnsamblajeState({ 
+      activeStep: activeStep - 1,
+      error: '' // Limpiar error al retroceder
+    });
   };
 
   const handleFileUploaded = (data: any) => {
-    setUploadId(data.upload_id);
-    setError('');
+    setEnsamblajeState({ 
+      uploadId: data.upload_id,
+      error: ''
+    });
   };
 
   const handleFileParsed = (data: any) => {
-    setParseData(data);
-    setError('');
-    handleNext();
+    setEnsamblajeState({
+      parseData: data,
+      error: '',
+      activeStep: activeStep + 1
+    });
   };
 
   const handleCategorizationComplete = async (categorizationData: any) => {
-    setIsLoading(true);
-    setError('');
+    setEnsamblajeState({ isLoading: true, error: '' });
     
     try {
       // Import ApiService with new ToolKit methods
@@ -83,9 +96,13 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       console.log('Categorization received:', categorizationData);
       console.log('Upload ID:', uploadId);
       
-      // First, save the categorization to get validation_session_id
+      // 🚨 CRÍTICO: Validar integridad de datos antes de requests
       if (!uploadId) {
         throw new Error('Upload ID not available');
+      }
+      
+      if (!ensamblajeState.lastSessionId) {
+        throw new Error('Sesión no válida. Por favor, recarga la aplicación.');
       }
       
       const saveResult = await ApiService.saveCategorization(uploadId, categorizationData);
@@ -103,36 +120,48 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
         classification_vars: categorizationData.classification_vars,
         // NO persistir other_vars - deben quedar como uncategorized para reasignación
       };
-      setSavedCategorization(categorizationForPersistence);
       
       // Now use the validation_session_id for ToolKit validation
       const validationResult = await ApiService.runToolValidation('ensamblaje', saveResult.validation_session_id);
       console.log('Validation result:', validationResult);
       
       if (validationResult.success) {
-        setValidationResults(validationResult);
-        setValidationSessionId(saveResult.validation_session_id);
-        setHasCompletedValidation(true);
-        handleNext();
+        setEnsamblajeState({
+          validationResults: validationResult,
+          validationSessionId: saveResult.validation_session_id,
+          savedCategorization: categorizationForPersistence,
+          hasCompletedValidation: true,
+          activeStep: activeStep + 1,
+          isLoading: false
+        });
       } else {
-        setError(validationResult.error || 'Error en validación');
+        setEnsamblajeState({ 
+          error: validationResult.error || 'Error en validación',
+          isLoading: false
+        });
       }
     } catch (error: any) {
       console.error('Error in categorization flow:', error);
-      setError(error.message || 'Error ejecutando validación con ToolKit');
-    } finally {
-      setIsLoading(false);
+      setEnsamblajeState({ 
+        error: error.message || 'Error ejecutando validación con ToolKit',
+        isLoading: false
+      });
     }
   };
 
   const handleExport = async (exportType: string) => {
     if (!validationSessionId) {
-      setError('No hay sesión de validación disponible para exportar');
+      setEnsamblajeState({ error: 'No hay sesión de validación disponible para exportar' });
       return;
     }
     
-    setIsLoading(true);
-    setError('');
+    // 🚨 CRÍTICO: Validar sesión antes de export
+    if (!ensamblajeState.lastSessionId) {
+      setEnsamblajeState({ error: 'Sesión no válida. Por favor, recarga la aplicación.' });
+      return;
+    }
+    
+    setEnsamblajeState({ isLoading: true, error: '' });
     
     try {
       console.log('Export requested:', exportType);
@@ -148,26 +177,24 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       if (exportResult.success && exportResult.export_id) {
         // Download the generated file
         await ApiService.downloadExport(exportResult.export_id);
+        setEnsamblajeState({ isLoading: false });
       } else {
-        setError(exportResult.error || 'Error generando archivo de exportación');
+        setEnsamblajeState({ 
+          error: exportResult.error || 'Error generando archivo de exportación',
+          isLoading: false
+        });
       }
     } catch (error: any) {
       console.error('Error in export flow:', error);
-      setError(error.message || 'Error ejecutando exportación');
-    } finally {
-      setIsLoading(false);
+      setEnsamblajeState({ 
+        error: error.message || 'Error ejecutando exportación',
+        isLoading: false
+      });
     }
   };
 
   const handleReset = () => {
-    setActiveStep(0);
-    setUploadId(null);
-    setParseData(null);
-    setValidationResults(null);
-    setValidationSessionId(null);
-    setSavedCategorization(null);
-    setHasCompletedValidation(false);
-    setError('');
+    resetEnsamblajeState();
   };
 
   if (!isAuthenticated) {
@@ -217,9 +244,20 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   return (
     <Box sx={{ p: 3 }}>
       <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Validador de Instrumentos de Ensamblaje
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Typography variant="h4" component="h1">
+            Validador de Instrumentos de Ensamblaje
+          </Typography>
+          {hasChangesAfterValidation && (
+            <Chip 
+              label="Cambios sin guardar" 
+              color="warning" 
+              variant="outlined" 
+              size="small"
+              sx={{ fontWeight: 500 }}
+            />
+          )}
+        </Box>
         <Typography variant="body1" color="text.secondary" paragraph>
           Herramienta especializada para validación de instrumentos educativos de tipo ensamblaje
         </Typography>
@@ -227,9 +265,29 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
 
       <Paper elevation={1} sx={{ p: 3 }}>
         <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
-          {steps.map((label) => (
+          {steps.map((label, index) => (
             <Step key={label}>
-              <StepLabel>{label}</StepLabel>
+              <StepLabel>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {label}
+                  {/* Mostrar indicador en paso de categorización si hay cambios */}
+                  {index === 1 && hasChangesAfterValidation && (
+                    <Chip 
+                      label="●" 
+                      color="warning" 
+                      size="small"
+                      sx={{ 
+                        minWidth: '20px', 
+                        height: '16px',
+                        '& .MuiChip-label': { 
+                          paddingX: 0.5,
+                          fontSize: '0.7rem'
+                        }
+                      }}
+                    />
+                  )}
+                </Box>
+              </StepLabel>
             </Step>
           ))}
         </Stepper>
@@ -252,14 +310,30 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
 
         {/* Navigation Buttons */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
-          <Button
-            variant="outlined"
-            onClick={handleBack}
-            disabled={activeStep === 0 || isLoading}
-            startIcon={<span>←</span>}
-          >
-            Paso Anterior
-          </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              variant="outlined"
+              onClick={handleBack}
+              disabled={activeStep === 0 || isLoading}
+              startIcon={<span>←</span>}
+            >
+              Paso Anterior
+            </Button>
+            
+            {/* Botón Reiniciar Proceso cuando hay datos */}
+            {(parseData || hasCompletedValidation) && (
+              <Button
+                variant="outlined"
+                color="warning"
+                onClick={handleReset}
+                disabled={isLoading}
+                size="small"
+                sx={{ ml: 1 }}
+              >
+                Reiniciar Proceso
+              </Button>
+            )}
+          </Box>
           
           <Typography variant="body2" color="text.secondary">
             Paso {activeStep + 1} de {steps.length}
@@ -283,17 +357,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
           )}
         </Box>
 
-        {activeStep === steps.length - 1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-            <Button
-              variant="contained"
-              onClick={handleReset}
-              size="large"
-            >
-              Procesar Nuevo Archivo
-            </Button>
-          </Box>
-        )}
+{/* Botón de "Procesar Nuevo Archivo" removido - ahora usamos "Reiniciar Proceso" */}
       </Paper>
     </Box>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -22,6 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import DataPreview from './DataPreview';
 import SingleInstrumentConfirmation from './SingleInstrumentConfirmation';
 import ApiService from '../../../core/api';
+import { useEnsamblajeState } from '../../../core/ToolStateContext';
 
 interface Variable {
   name: string;
@@ -200,50 +201,27 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   sheetName,
   savedCategorization,
 }) => {
-  const [categorizedVariables, setCategorizedVariables] = useState<Record<string, Variable[]>>({
-    instrument_vars: [],
-    item_id_vars: [],
-    metadata_vars: [],
-    classification_vars: [],
-    other_vars: [],
-  });
+  const { ensamblajeState, setEnsamblajeState } = useEnsamblajeState();
 
-  const [uncategorizedVariables, setUncategorizedVariables] = useState<Variable[]>(
-    variables.map(name => ({
-      name: name,
-      sampleValues: sampleValues[name] || []
-    }))
-  );
-
-  const [showPreview, setShowPreview] = useState(false);
-  const [showSingleInstrumentConfirmation, setShowSingleInstrumentConfirmation] = useState(false);
-  const [unnamedColumnsInfo, setUnnamedColumnsInfo] = useState<UnnamedColumnsInfo | null>(null);
-
-  const [error, setError] = useState<string | null>(null);
-
-  // Obtener información de columnas renombradas
-  useEffect(() => {
-    const fetchUnnamedColumnsInfo = async () => {
-      try {
-        const previewData = await ApiService.getDataPreview(uploadId, sheetName, 0, 1);
-        if (previewData.success && previewData.unnamed_columns_info) {
-          setUnnamedColumnsInfo(previewData.unnamed_columns_info);
-        }
-      } catch (error) {
-        console.warn('No se pudo obtener información de columnas renombradas:', error);
-      }
-    };
-
-    fetchUnnamedColumnsInfo();
-  }, [uploadId, sheetName]);
-
-  // Restaurar estado guardado cuando existe savedCategorization
-  useEffect(() => {
-    if (savedCategorization) {
-      console.log('Restaurando categorización guardada:', savedCategorization);
-      
-      // Convertir categorización guardada a formato de Variables con sample values
-      const restoredCategorization: Record<string, Variable[]> = {
+  // Sistema de prioridad para estado inicial:
+  // 1. currentCategorization (cambios temporales) - máxima prioridad
+  // 2. savedCategorization (estado validado) - si no hay cambios temporales
+  // 3. Estado inicial (variables sin categorizar) - por defecto
+  
+  const getInitialCategorizedVariables = () => {
+    // 🎯 UX: PRIORIDAD CORREGIDA - Estado temporal SIEMPRE tiene prioridad
+    
+    // Prioridad 1: Estado temporal (cambios no guardados) - DEBE preservarse entre navegaciones  
+    if (ensamblajeState.currentCategorization?.categorizedVariables) {
+      const temporalVars = ensamblajeState.currentCategorization.categorizedVariables;
+      console.log('🎯 UX: Cargando estado temporal preservado:', temporalVars);
+      return temporalVars;
+    }
+    
+    // Prioridad 2: Estado validado (solo si NO hay cambios temporales)
+    if (savedCategorization && !ensamblajeState.currentCategorization) {
+      console.log('🎯 UX: Cargando estado validado:', savedCategorization);
+      const restored: Record<string, Variable[]> = {
         instrument_vars: [],
         item_id_vars: [],
         metadata_vars: [],
@@ -251,36 +229,198 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         other_vars: [],
       };
       
-      const categorizedNames = new Set<string>();
-      
-      // Restaurar cada categoría (other_vars no se persiste, así que permanece vacío)
-      Object.keys(restoredCategorization).forEach(categoryId => {
-        if (savedCategorization[categoryId] && Array.isArray(savedCategorization[categoryId])) {
-          restoredCategorization[categoryId] = savedCategorization[categoryId].map((varName: string) => {
-            categorizedNames.add(varName);
-            return {
-              name: varName,
-              sampleValues: sampleValues[varName] || []
-            };
-          });
+      // Restaurar desde savedCategorization
+      Object.entries(savedCategorization).forEach(([key, varNames]) => {
+        if (key !== 'other_vars' && Array.isArray(varNames)) {
+          restored[key] = (varNames as string[]).map(name => ({
+            name,
+            sampleValues: sampleValues[name] || []
+          }));
         }
-        // Si categoryId === 'other_vars', savedCategorization[categoryId] será undefined
-        // por lo que other_vars permanece como array vacío []
       });
       
-      // Calcular variables no categorizadas (las que no están en ninguna categoría guardada)
-      const remainingUncategorized = variables
-        .filter(varName => !categorizedNames.has(varName))
-        .map(varName => ({
-          name: varName,
-          sampleValues: sampleValues[varName] || []
-        }));
-      
-      // Actualizar estado
-      setCategorizedVariables(restoredCategorization);
-      setUncategorizedVariables(remainingUncategorized);
+      return restored;
     }
-  }, [savedCategorization, variables, sampleValues]);
+    
+    // Prioridad 3: Estado inicial vacío
+    console.log('🎯 UX: Cargando estado inicial vacío');
+    return {
+      instrument_vars: [],
+      item_id_vars: [],
+      metadata_vars: [],
+      classification_vars: [],
+      other_vars: [],
+    };
+  };
+
+  const getInitialUncategorizedVariables = () => {
+    // Prioridad 1: Estado temporal
+    if (ensamblajeState.currentCategorization?.uncategorizedVariables) {
+      return ensamblajeState.currentCategorization.uncategorizedVariables;
+    }
+    
+    // Prioridad 2: Calcular desde savedCategorization
+    if (savedCategorization) {
+      const categorizedNames = new Set<string>();
+      Object.entries(savedCategorization).forEach(([key, varNames]) => {
+        if (key !== 'other_vars' && Array.isArray(varNames)) {
+          (varNames as string[]).forEach(name => categorizedNames.add(name));
+        }
+      });
+      
+      return variables
+        .filter(name => !categorizedNames.has(name))
+        .map(name => ({
+          name,
+          sampleValues: sampleValues[name] || []
+        }));
+    }
+    
+    // Prioridad 3: Todas las variables sin categorizar
+    return variables.map(name => ({
+      name,
+      sampleValues: sampleValues[name] || []
+    }));
+  };
+
+  // 🚨 CRÍTICO: Estado inicial simple para evitar loop infinito
+  const [categorizedVariables, setCategorizedVariables] = useState<Record<string, Variable[]>>({
+    instrument_vars: [],
+    item_id_vars: [],
+    metadata_vars: [],
+    classification_vars: [],
+    other_vars: [],
+  });
+  const [uncategorizedVariables, setUncategorizedVariables] = useState<Variable[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  const [showPreview, setShowPreview] = useState(false);
+  const [showSingleInstrumentConfirmation, setShowSingleInstrumentConfirmation] = useState(false);
+  const [unnamedColumnsInfo, setUnnamedColumnsInfo] = useState<UnnamedColumnsInfo | null>(null);
+
+  const [error, setError] = useState<string | null>(null);
+
+  // 🚨 CRÍTICO: Inicialización única para evitar loop infinito
+  useEffect(() => {
+    if (!isInitialized && variables.length > 0 && Object.keys(sampleValues).length > 0) {
+      console.log('🎯 UX: Inicializando estado por única vez');
+      
+      const initialCategorized = getInitialCategorizedVariables();
+      const initialUncategorized = getInitialUncategorizedVariables();
+      
+      setCategorizedVariables(initialCategorized);
+      setUncategorizedVariables(initialUncategorized);
+      setIsInitialized(true);
+    }
+  }, [isInitialized, variables.length, Object.keys(sampleValues).length]);
+
+  // Usar ref para evitar loops infinitos
+  const lastSyncedState = useRef<string>('');
+
+  // Sincronizar estado con el contexto de forma controlada
+  const currentStateString = useMemo(() => {
+    return JSON.stringify({
+      categorizedVariables,
+      uncategorizedVariables
+    });
+  }, [categorizedVariables, uncategorizedVariables]);
+
+  useEffect(() => {
+    // Solo sincronizar después de inicializar y si el estado realmente cambió
+    if (!isInitialized || currentStateString === lastSyncedState.current) {
+      return;
+    }
+
+    console.log('🎯 UX: Sincronizando estado con contexto');
+    lastSyncedState.current = currentStateString;
+    
+    const currentState = {
+      categorizedVariables,
+      uncategorizedVariables
+    };
+    
+    // 🚨 CRÍTICO: Detectar cambios después de validación de manera más precisa
+    let hasChangesAfterValidation = false;
+    
+    if (ensamblajeState.hasCompletedValidation && ensamblajeState.savedCategorization) {
+      // Convertir savedCategorization (array de nombres) a estructura comparable
+      const savedAsVariables: Record<string, Variable[]> = {
+        instrument_vars: [],
+        item_id_vars: [],
+        metadata_vars: [],
+        classification_vars: [],
+        other_vars: [],
+      };
+      
+      Object.entries(ensamblajeState.savedCategorization).forEach(([key, varNames]) => {
+        if (key !== 'other_vars' && Array.isArray(varNames)) {
+          savedAsVariables[key] = (varNames as string[]).map(name => ({
+            name,
+            sampleValues: sampleValues[name] || []
+          }));
+        }
+      });
+      
+      // Comparar solo las variables categorizadas (sin uncategorized)
+      const currentCategorizedOnly = {
+        instrument_vars: categorizedVariables.instrument_vars,
+        item_id_vars: categorizedVariables.item_id_vars,
+        metadata_vars: categorizedVariables.metadata_vars,
+        classification_vars: categorizedVariables.classification_vars,
+      };
+      
+      const savedCategorizedOnly = {
+        instrument_vars: savedAsVariables.instrument_vars,
+        item_id_vars: savedAsVariables.item_id_vars,
+        metadata_vars: savedAsVariables.metadata_vars,
+        classification_vars: savedAsVariables.classification_vars,
+      };
+      
+      hasChangesAfterValidation = JSON.stringify(currentCategorizedOnly) !== JSON.stringify(savedCategorizedOnly);
+    }
+
+    // 🎯 UX: Detectar cambios temporales para indicador visual
+    const hasTemporalChanges = hasChangesAfterValidation && ensamblajeState.hasCompletedValidation;
+    
+    setEnsamblajeState({
+      currentCategorization: currentState,
+      hasChangesAfterValidation: hasChangesAfterValidation,
+      hasTemporalChanges: hasTemporalChanges
+    });
+  }, [currentStateString, isInitialized, setEnsamblajeState]);
+
+  // Obtener información de columnas renombradas
+  useEffect(() => {
+    const fetchUnnamedColumnsInfo = async () => {
+      // 🚨 CRÍTICO: Validar que uploadId pertenece a la sesión actual
+      if (!uploadId || !ensamblajeState.lastSessionId) {
+        console.warn('🚨 SECURITY: No valid uploadId or sessionId - skipping request');
+        return;
+      }
+
+      try {
+        const previewData = await ApiService.getDataPreview(uploadId, sheetName, 0, 1);
+        if (previewData.success && previewData.unnamed_columns_info) {
+          setUnnamedColumnsInfo(previewData.unnamed_columns_info);
+        }
+      } catch (error) {
+        // 🚨 CRÍTICO: Si es 404, probablemente uploadId obsoleto de sesión anterior
+        if ((error as any)?.response?.status === 404) {
+          console.warn('🚨 SECURITY: UploadId not found (404) - possibly from previous session');
+          setEnsamblajeState({ 
+            error: 'Sesión expirada. Por favor, sube tu archivo nuevamente.',
+            uploadId: null,
+            parseData: null
+          });
+        } else {
+          console.warn('No se pudo obtener información de columnas renombradas:', error);
+        }
+      }
+    };
+
+    fetchUnnamedColumnsInfo();
+  }, [uploadId, sheetName, ensamblajeState.lastSessionId, setEnsamblajeState]);
+
 
   const handleDrop = useCallback((categoryId: string, variable: Variable) => {
     setError(null);
@@ -342,7 +482,13 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     
     // Limpiar errores
     setError(null);
-  }, [categorizedVariables]);
+    
+    // 🎯 UX: Al hacer "Limpiar Categorización", sí eliminar estado temporal
+    setEnsamblajeState({
+      currentCategorization: null,
+      hasTemporalChanges: false // Reset indicador visual
+    });
+  }, [categorizedVariables, setEnsamblajeState]);
 
   const validateCategorization = (): string | null => {
     if (categorizedVariables.item_id_vars.length === 0) {
@@ -394,6 +540,12 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
     console.log('Sending categorization to backend:', categorizationData);
     console.log('UI state preserved - uncategorized count:', uncategorizedVariables.length);
+    
+    // 🎯 UX: Limpiar estado temporal ya que se procede con nueva validación
+    setEnsamblajeState({
+      currentCategorization: null,
+      hasTemporalChanges: false // Reset indicador visual
+    });
     
     onCategorization(categorizationData);
   };
@@ -568,6 +720,17 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
             </Grid>
           </AccordionDetails>
         </Accordion>
+
+        {/* Mostrar alerta si hay cambios después de validación */}
+        {ensamblajeState.hasChangesAfterValidation && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              <strong>⚠️ Has modificado la categorización después de completar la validación.</strong>
+              <br />
+              Para aplicar estos cambios debes guardar la categorización y validar nuevamente.
+            </Typography>
+          </Alert>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
