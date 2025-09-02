@@ -390,36 +390,37 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   }, [currentStateString, isInitialized, setEnsamblajeState]);
 
   // Obtener información de columnas renombradas
+  const fetchUnnamedColumnsInfo = useCallback(async () => {
+    // 🚨 CRÍTICO: Validar que uploadId pertenece a la sesión actual
+    if (!uploadId || !ensamblajeState.lastSessionId) {
+      console.warn('🚨 SECURITY: No valid uploadId or sessionId - skipping request');
+      return;
+    }
+
+    try {
+      const previewData = await ApiService.getDataPreview(uploadId, sheetName, 0, 1);
+      if (previewData.success && previewData.unnamed_columns_info) {
+        setUnnamedColumnsInfo(previewData.unnamed_columns_info);
+      }
+    } catch (error) {
+      // 🚨 CRÍTICO: Si es 404, probablemente uploadId obsoleto de sesión anterior
+      if ((error as any)?.response?.status === 404) {
+        console.warn('🚨 SECURITY: UploadId not found (404) - possibly from previous session');
+        // Usar callback sin incluir setEnsamblajeState en dependencies para evitar loop
+        setEnsamblajeState({ 
+          error: 'Sesión expirada. Por favor, sube tu archivo nuevamente.',
+          uploadId: null,
+          parseData: null
+        });
+      } else {
+        console.warn('No se pudo obtener información de columnas renombradas:', error);
+      }
+    }
+  }, [uploadId, sheetName, ensamblajeState.lastSessionId]);
+
   useEffect(() => {
-    const fetchUnnamedColumnsInfo = async () => {
-      // 🚨 CRÍTICO: Validar que uploadId pertenece a la sesión actual
-      if (!uploadId || !ensamblajeState.lastSessionId) {
-        console.warn('🚨 SECURITY: No valid uploadId or sessionId - skipping request');
-        return;
-      }
-
-      try {
-        const previewData = await ApiService.getDataPreview(uploadId, sheetName, 0, 1);
-        if (previewData.success && previewData.unnamed_columns_info) {
-          setUnnamedColumnsInfo(previewData.unnamed_columns_info);
-        }
-      } catch (error) {
-        // 🚨 CRÍTICO: Si es 404, probablemente uploadId obsoleto de sesión anterior
-        if ((error as any)?.response?.status === 404) {
-          console.warn('🚨 SECURITY: UploadId not found (404) - possibly from previous session');
-          setEnsamblajeState({ 
-            error: 'Sesión expirada. Por favor, sube tu archivo nuevamente.',
-            uploadId: null,
-            parseData: null
-          });
-        } else {
-          console.warn('No se pudo obtener información de columnas renombradas:', error);
-        }
-      }
-    };
-
     fetchUnnamedColumnsInfo();
-  }, [uploadId, sheetName, ensamblajeState.lastSessionId, setEnsamblajeState]);
+  }, [fetchUnnamedColumnsInfo]);
 
 
   const handleDrop = useCallback((categoryId: string, variable: Variable) => {
