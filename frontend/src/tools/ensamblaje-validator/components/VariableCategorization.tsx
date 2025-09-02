@@ -81,7 +81,7 @@ const CATEGORIES: CategoryConfig[] = [
     description: 'Variables con información técnica del ítem que DEBE estar siempre completa',
     icon: <Info />,
     color: '#f57c00',
-    examples: ['invertido', 'ancla', 'clave', 'valores_validos', 'valores_invalidos', 'dificultad']
+    examples: ['invertido', 'ancla', 'clave', 'valores_validos', 'valores_invalidos']
   },
   {
     id: 'classification_vars',
@@ -89,7 +89,7 @@ const CATEGORIES: CategoryConfig[] = [
     description: 'Variables que clasifican o describen el contenido del ítem (puede tener valores vacíos)',
     icon: <Class />,
     color: '#7b1fa2',
-    examples: ['dimension', 'subdimension', 'enunciado', 'texto_pregunta', 'competencia', 'habilidad']
+    examples: ['dimension', 'subdimension', 'enunciado', 'texto_pregunta', 'competencia']
   }
 ];
 
