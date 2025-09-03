@@ -208,7 +208,7 @@ class FileSecurityValidator:
     
     def _detect_mime_type(self, file_path: str) -> str:
         """
-        Detect MIME type using python-magic (more reliable than file extension)
+        Detect MIME type using python-magic with enhanced XLSX handling
         
         Args:
             file_path: Path to file
@@ -219,18 +219,92 @@ class FileSecurityValidator:
         try:
             if self.magic_available:
                 mime_type = magic.from_file(file_path, mime=True)
+                
+                # Handle common magic issues with XLSX files
+                if mime_type == 'application/zip' or 'zip' in mime_type.lower():
+                    # Check if it's actually an XLSX file by examining the file extension
+                    # and trying to validate it's a proper Office document
+                    if file_path.lower().endswith('.xlsx'):
+                        if self._validate_xlsx_structure(file_path):
+                            return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                        else:
+                            return 'application/zip'  # It's a ZIP but not a valid XLSX
+                
+                # Some magic implementations return generic MIME types for XLSX
+                elif mime_type in ['application/octet-stream', 'application/x-zip-compressed']:
+                    if file_path.lower().endswith('.xlsx'):
+                        if self._validate_xlsx_structure(file_path):
+                            return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                
                 return mime_type
             else:
-                # Fallback to extension-based detection
-                _, ext = os.path.splitext(file_path.lower())
-                extension_mapping = {
-                    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    '.xls': 'application/vnd.ms-excel',
-                    '.csv': 'text/csv'
-                }
-                return extension_mapping.get(ext, 'application/octet-stream')
+                # Fallback to extension-based detection with validation
+                return self._fallback_mime_detection(file_path)
+                
         except Exception as e:
             print(f"MIME type detection error: {str(e)}")
+            # Try fallback detection
+            return self._fallback_mime_detection(file_path)
+    
+    def _validate_xlsx_structure(self, file_path: str) -> bool:
+        """
+        Validate that a file has proper XLSX structure
+        
+        Args:
+            file_path: Path to file to validate
+            
+        Returns:
+            bool: True if file has valid XLSX structure
+        """
+        try:
+            with zipfile.ZipFile(file_path, 'r') as zip_file:
+                # Check for essential XLSX structure files
+                required_files = ['[Content_Types].xml', 'xl/workbook.xml']
+                
+                file_list = zip_file.namelist()
+                
+                # Check if all required files exist
+                for required_file in required_files:
+                    if required_file not in file_list:
+                        return False
+                
+                # Additional check: ensure it has worksheets
+                has_worksheets = any(name.startswith('xl/worksheets/') and name.endswith('.xml') 
+                                   for name in file_list)
+                
+                return has_worksheets
+                
+        except (zipfile.BadZipFile, Exception):
+            return False
+    
+    def _fallback_mime_detection(self, file_path: str) -> str:
+        """
+        Fallback MIME type detection with enhanced validation
+        
+        Args:
+            file_path: Path to file
+            
+        Returns:
+            str: Detected MIME type
+        """
+        try:
+            _, ext = os.path.splitext(file_path.lower())
+            extension_mapping = {
+                '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                '.xls': 'application/vnd.ms-excel',
+                '.csv': 'text/csv'
+            }
+            
+            mime_type = extension_mapping.get(ext, 'application/octet-stream')
+            
+            # For XLSX files, validate structure even in fallback mode
+            if ext == '.xlsx':
+                if not self._validate_xlsx_structure(file_path):
+                    return 'application/octet-stream'  # Not a valid XLSX
+            
+            return mime_type
+            
+        except Exception:
             return 'application/octet-stream'
     
     def _scan_for_macros(self, file_path: str, mime_type: str) -> Dict[str, Any]:

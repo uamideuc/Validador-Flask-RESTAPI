@@ -231,13 +231,19 @@ class FileUploadService:
             }
     
     def _parse_csv(self, file_path: str) -> pd.DataFrame:
-        """Parse CSV file with automatic encoding detection"""
+        """Parse CSV file with automatic encoding detection and UTF-8 conversion"""
         encodings_to_try = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
         
         for encoding in encodings_to_try:
             try:
                 df = pd.read_csv(file_path, encoding=encoding)
                 print(f"✅ CSV parsed successfully with encoding: {encoding}")
+                
+                # If file was not UTF-8, convert and save it as UTF-8
+                if encoding != 'utf-8':
+                    self._convert_file_to_utf8(file_path, encoding)
+                    print(f"🔄 File converted from {encoding} to UTF-8")
+                
                 return df
             except UnicodeDecodeError:
                 continue
@@ -247,6 +253,34 @@ class FileUploadService:
                 continue
         
         raise Exception("No se pudo determinar la codificación del archivo CSV")
+    
+    def _convert_file_to_utf8(self, file_path: str, source_encoding: str) -> None:
+        """Convert file from source encoding to UTF-8"""
+        try:
+            # Create backup path
+            backup_path = f"{file_path}.backup"
+            
+            # Read file with source encoding
+            with open(file_path, 'r', encoding=source_encoding) as source_file:
+                content = source_file.read()
+            
+            # Create backup of original file
+            with open(backup_path, 'w', encoding=source_encoding) as backup_file:
+                backup_file.write(content)
+            
+            # Write file with UTF-8 encoding
+            with open(file_path, 'w', encoding='utf-8') as target_file:
+                target_file.write(content)
+            
+            # Remove backup if conversion successful
+            os.remove(backup_path)
+            
+        except Exception as e:
+            # If conversion fails, restore from backup if it exists
+            backup_path = f"{file_path}.backup"
+            if os.path.exists(backup_path):
+                os.replace(backup_path, file_path)
+            raise Exception(f"Error converting file to UTF-8: {str(e)}")
     
     def _parse_excel(self, file_path: str, sheet_name: Optional[str] = None) -> pd.DataFrame:
         """Parse Excel file with optional sheet selection"""
