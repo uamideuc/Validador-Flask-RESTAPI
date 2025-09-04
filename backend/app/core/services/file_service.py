@@ -190,6 +190,10 @@ class FileUploadService:
             # Parse file using specialized service
             df = self.file_parser.parse_file(file_path, sheet_name)
             
+            # Validate that we received a DataFrame
+            if not isinstance(df, pd.DataFrame):
+                raise Exception(f"Error al procesar archivo: se esperaba DataFrame, se obtuvo {type(df)}")
+            
             # Clean data using specialized service
             df, cleaning_info = self.data_cleaner.clean_dataframe(df)
             

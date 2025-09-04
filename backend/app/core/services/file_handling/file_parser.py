@@ -62,11 +62,55 @@ class FileParser:
     def _parse_excel(self, file_path: str, sheet_name: Optional[str] = None) -> pd.DataFrame:
         """Parse Excel file with optional sheet selection"""
         try:
-            df = pd.read_excel(file_path, sheet_name=sheet_name)
-            print(f"✅ Excel parsed successfully from sheet: {sheet_name or 'default'}")
+            # Read Excel file - may return dict for multi-sheet files
+            result = pd.read_excel(file_path, sheet_name=sheet_name)
+            
+            # Handle multi-sheet Excel files
+            if isinstance(result, dict):
+                if sheet_name and sheet_name in result:
+                    # Specific sheet requested and found
+                    df = result[sheet_name]
+                    print(f"✅ Excel parsed successfully from specified sheet: {sheet_name}")
+                elif sheet_name:
+                    # Specific sheet requested but not found
+                    available_sheets = list(result.keys())
+                    raise Exception(f"Hoja '{sheet_name}' no encontrada. Hojas disponibles: {available_sheets}")
+                else:
+                    # No sheet specified, use first sheet
+                    if not result:
+                        raise Exception("El archivo Excel no contiene hojas válidas")
+                    first_sheet = next(iter(result))
+                    df = result[first_sheet]
+                    print(f"✅ Excel parsed successfully from first sheet: {first_sheet}")
+            else:
+                # Single sheet file or sheet_name was specified and found
+                df = result
+                print(f"✅ Excel parsed successfully from sheet: {sheet_name or 'default'}")
+            
+            # Validate that df is actually a DataFrame
+            if not isinstance(df, pd.DataFrame):
+                raise Exception(f"Error al procesar archivo Excel: se esperaba DataFrame, se obtuvo {type(df)}")
+            
+            # Validate the DataFrame is not empty and has columns
+            if df.empty:
+                raise Exception("El archivo Excel está vacío o no contiene datos válidos")
+            
+            if len(df.columns) == 0:
+                raise Exception("El archivo Excel no contiene columnas válidas")
+            
             return df
+            
         except Exception as e:
-            raise Exception(f"Error parsing Excel file: {str(e)}")
+            # More specific error handling for common Excel issues
+            error_msg = str(e)
+            if "No sheet named" in error_msg:
+                raise Exception(f"Hoja no encontrada en el archivo Excel: {error_msg}")
+            elif "Excel file format cannot be determined" in error_msg:
+                raise Exception("Formato de archivo Excel no válido o corrupto")
+            elif "Permission denied" in error_msg:
+                raise Exception("No se puede acceder al archivo Excel. Verifique que no esté abierto en otra aplicación")
+            else:
+                raise Exception(f"Error al leer archivo Excel: {error_msg}")
     
     def _convert_file_to_utf8(self, file_path: str, source_encoding: str) -> None:
         """Convert file from source encoding to UTF-8"""

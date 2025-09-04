@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Box, 
   Paper, 
@@ -18,6 +18,7 @@ import FileUpload from './components/FileUpload';
 import DataPreview from './components/DataPreview';
 import VariableCategorization from './components/VariableCategorization';
 import ValidationReport from './components/ValidationReport.jsx';
+import FileResetConfirmation from './components/FileResetConfirmation';
 
 const steps = [
   'Subir Archivo',
@@ -80,12 +81,73 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     });
   };
 
+  // Estado local para modal de confirmación
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+  const [pendingFileData, setPendingFileData] = useState<any>(null);
+
+  // Función helper para detectar si hay trabajo previo
+  const hasExistingWork = (): boolean => {
+    return !!(savedCategorization || hasCompletedValidation || validationResults);
+  };
+
   const handleFileParsed = (data: any) => {
+    // Si hay trabajo previo, mostrar confirmación
+    if (hasExistingWork()) {
+      setPendingFileData(data);
+      setShowResetConfirmation(true);
+      return;
+    }
+
+    // Si no hay trabajo previo, proceder directamente
+    proceedWithNewFile(data);
+  };
+
+  const proceedWithNewFile = (data: any) => {
     setEnsamblajeState({
       parseData: data,
       error: '',
       activeStep: activeStep + 1
     });
+  };
+
+  const handleResetConfirm = () => {
+    // 🚨 CRÍTICO: Reset selectivo manteniendo valores esenciales
+    const currentLastSessionId = ensamblajeState.lastSessionId;
+    const currentUploadId = ensamblajeState.uploadId;
+    const currentFilename = ensamblajeState.uploadedFilename;
+    
+    // Reset selectivo preservando información crítica del archivo actual
+    setEnsamblajeState({
+      activeStep: 0,
+      // PRESERVAR: uploadId del archivo que se acaba de cargar
+      uploadId: currentUploadId,
+      uploadedFilename: currentFilename,
+      parseData: null,
+      validationResults: null,
+      validationSessionId: null,
+      savedCategorization: null,
+      currentCategorization: null,
+      hasCompletedValidation: false,
+      hasChangesAfterValidation: false,
+      hasTemporalChanges: false,
+      // PRESERVAR: lastSessionId crítico para validaciones posteriores
+      lastSessionId: currentLastSessionId,
+      error: '',
+      isLoading: false
+    });
+    
+    // Proceder con el nuevo archivo después del reset selectivo
+    proceedWithNewFile(pendingFileData);
+    
+    // Limpiar estados locales
+    setShowResetConfirmation(false);
+    setPendingFileData(null);
+  };
+
+  const handleResetCancel = () => {
+    // Cancelar - no hacer nada, mantener estado actual
+    setShowResetConfirmation(false);
+    setPendingFileData(null);
   };
 
   const handleCategorizationComplete = async (categorizationData: any) => {
@@ -363,6 +425,14 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
 
 {/* Botón de "Procesar Nuevo Archivo" removido - ahora usamos "Reiniciar Proceso" */}
       </Paper>
+
+      {/* Modal de confirmación para reseteo */}
+      <FileResetConfirmation
+        open={showResetConfirmation}
+        onConfirm={handleResetConfirm}
+        onCancel={handleResetCancel}
+        filename={pendingFileData?.filename || 'archivo seleccionado'}
+      />
     </Box>
   );
 };

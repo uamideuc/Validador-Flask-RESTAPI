@@ -185,6 +185,14 @@ def parse_file(upload_id):
         if not parse_result['success']:
             return jsonify(parse_result), 400
         
+        # Validate parse result has required data
+        if not parse_result.get('columns') or len(parse_result['columns']) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'El archivo no contiene columnas válidas para procesar',
+                'error_code': 'NO_VALID_COLUMNS'
+            }), 400
+        
         # Update database with variables and sheet name
         variables = parse_result['columns']
         db.update_upload_variables(upload_id, variables)
@@ -203,10 +211,26 @@ def parse_file(upload_id):
         return jsonify(response_data), 200
         
     except Exception as e:
+        error_msg = str(e)
+        error_code = 'PARSE_ERROR'
+        
+        # Provide more specific error codes for common Excel issues
+        if 'dict' in error_msg and 'columns' in error_msg:
+            error_code = 'EXCEL_MULTISHEET_ERROR'
+            error_msg = 'Error al procesar archivo Excel con múltiples hojas. Especifique la hoja a procesar.'
+        elif 'Hoja no encontrada' in error_msg or 'No sheet named' in error_msg:
+            error_code = 'EXCEL_SHEET_NOT_FOUND'
+        elif 'Excel file format cannot be determined' in error_msg:
+            error_code = 'EXCEL_FORMAT_ERROR'
+            error_msg = 'Formato de archivo Excel no válido o corrupto'
+        elif 'Permission denied' in error_msg:
+            error_code = 'EXCEL_ACCESS_ERROR'
+            error_msg = 'No se puede acceder al archivo Excel. Verifique que no esté abierto en otra aplicación'
+        
         return jsonify({
             'success': False,
-            'error': f'Error al procesar archivo: {str(e)}',
-            'error_code': 'PARSE_ERROR'
+            'error': f'Error al procesar archivo: {error_msg}',
+            'error_code': error_code
         }), 500
 
 @bp.route('/<int:upload_id>/variables', methods=['GET'])
