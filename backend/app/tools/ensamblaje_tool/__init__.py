@@ -1,5 +1,5 @@
 """
-EnsamblajeToolKit - Herramienta para validación de instrumentos de ensamblaje
+EnsamblajeToolKit - Herramienta para validación de bases de datos de ensamblajes
 """
 import pandas as pd
 from typing import Dict, Any
@@ -10,7 +10,7 @@ from .constants import get_instrument_display_name
 
 class EnsamblajeToolKit:
     """
-    Clase principal del plugin para validación de instrumentos de ensamblaje
+    Clase principal del plugin para validación de bases de datos de ensamblajes
     Define la interfaz/API del ToolKit
     """
     
@@ -122,8 +122,8 @@ class EnsamblajeToolKit:
     def get_metadata(self) -> Dict[str, Any]:
         """Metadata del toolkit"""
         return {
-            'name': 'Validador de Instrumentos de Ensamblaje',
-            'description': 'Herramienta especializada para validación de instrumentos educativos de tipo ensamblaje',
+            'name': 'Validador de Bases de Datos de Ensamblajes',
+            'description': 'Herramienta especializada para validación de bases de datos de ensamblajes',
             'version': '1.0.0',
             'category': 'validation',
             'supported_operations': [

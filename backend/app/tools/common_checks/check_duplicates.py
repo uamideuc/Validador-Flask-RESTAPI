@@ -78,6 +78,7 @@ def validate_duplicates(
         else:
             result.statistics['message'] = 'No se encontraron ítems duplicados'
         
+        
     except Exception as e:
         result.add_error(
             f"Error durante validación de duplicados: {str(e)}",
@@ -86,6 +87,7 @@ def validate_duplicates(
         )
     
     return result
+
 
 def _get_instruments(data: pd.DataFrame, categorization: VariableCategorization) -> Dict[str, pd.DataFrame]:
     """

@@ -388,3 +388,79 @@ def save_categorization(upload_id):
             'error': f'Error al guardar categorización: {str(e)}',
             'error_code': 'CATEGORIZATION_ERROR'
         }), 500
+
+@bp.route('/<int:upload_id>/pre-validate-categorization', methods=['POST'])
+@require_session_ownership('upload')
+def pre_validate_categorization(upload_id):
+    """Pre-validate categorization to check for missing values in identification columns"""
+    try:
+        # Get upload record from database (ownership already validated by decorator)
+        db = get_db_manager()
+        upload_record = db.get_upload_record(upload_id)
+        
+        if not upload_record:
+            return jsonify({
+                'success': False,
+                'error': 'Archivo no encontrado',
+                'error_code': 'FILE_NOT_FOUND'
+            }), 404
+        
+        if not request.is_json:
+            return jsonify({
+                'success': False,
+                'error': 'Se requiere contenido JSON',
+                'error_code': 'INVALID_CONTENT_TYPE'
+            }), 400
+        
+        categorization_data = request.get_json()
+        
+        # Get the parsed data
+        file_service = FileUploadService(current_app.config['UPLOAD_FOLDER'])
+        parse_result = file_service.parse_file(upload_record['file_path'], upload_record.get('sheet_name'))
+        
+        if not parse_result['success']:
+            return jsonify({
+                'success': False,
+                'error': 'Error al leer datos del archivo',
+                'error_code': 'PARSE_ERROR'
+            }), 500
+        
+        df = parse_result['dataframe']
+        
+        # Check for missing values in instrument identification columns
+        instrument_vars = categorization_data.get('instrument_vars', [])
+        validation_errors = []
+        
+        if instrument_vars:
+            for var in instrument_vars:
+                if var in df.columns:
+                    missing_count = df[var].isna().sum()
+                    total_count = len(df)
+                    
+                    if missing_count > 0:
+                        validation_errors.append({
+                            'column': var,
+                            'missing_count': int(missing_count),
+                            'total_count': int(total_count),
+                            'percentage': round((missing_count / total_count) * 100, 2)
+                        })
+        
+        if validation_errors:
+            return jsonify({
+                'success': False,
+                'validation_errors': validation_errors,
+                'error': 'Se encontraron valores faltantes en columnas de identificación de instrumento',
+                'error_code': 'MISSING_VALUES_IN_IDENTIFICATION'
+            }), 400
+        
+        return jsonify({
+            'success': True,
+            'message': 'Pre-validación exitosa, no hay valores faltantes en columnas de identificación'
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error en pre-validación: {str(e)}',
+            'error_code': 'PRE_VALIDATION_ERROR'
+        }), 500

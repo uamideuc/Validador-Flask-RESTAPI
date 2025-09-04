@@ -87,8 +87,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onFileParsed })
   }, []);
 
   const validateFile = (file: File): string | null => {
-    const allowedTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-    const allowedExtensions = ['.csv', '.xls', '.xlsx'];
+    const allowedTypes = ['text/csv', 'text/plain', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    const allowedExtensions = ['.csv', '.txt', '.xls', '.xlsx'];
     
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
     
@@ -96,8 +96,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onFileParsed })
       return 'Formato de archivo no soportado. Use CSV, XLS o XLSX.';
     }
     
-    if (file.size > 16 * 1024 * 1024) { // 16MB
-      return 'El archivo es demasiado grande. Máximo 16MB.';
+    if (file.size > 1 * 1024 * 1024 * 1024) { // 1GB
+      return 'El archivo es demasiado grande. Máximo 1GB.';
     }
     
     return null;
@@ -210,7 +210,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onFileParsed })
         <input
           type="file"
           id="file-upload"
-          accept=".csv,.xls,.xlsx"
+          accept=".csv,.txt,.xls,.xlsx"
           onChange={handleFileSelect}
           style={{ display: 'none' }}
           disabled={uploading || parsing}
@@ -223,7 +223,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onFileParsed })
         </Typography>
         
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          Formatos soportados: CSV, XLS, XLSX (máximo 16MB)
+          Formatos soportados: CSV, XLS, XLSX
         </Typography>
         
         <Button

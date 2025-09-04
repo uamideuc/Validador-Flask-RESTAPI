@@ -68,8 +68,7 @@
 │   │   │   └── LoginForm.tsx               # Formulario de login
 │   │   ├── core/                           # Lógica central y compartida del frontend
 │   │   │   ├── api.ts                      # Cliente HTTP (axios) para el backend
-│   │   │   ├── auth.tsx                    # Contexto y lógica de autenticación
-│   │   │   └── types.ts                    # Definiciones de tipos TypeScript
+│   │   │   └── auth.tsx                    # Contexto y lógica de autenticación
 │   │   ├── pages/                          # Vistas principales de la aplicación
 │   │   │   ├── Login.tsx                   # Página de inicio de sesión
 │   │   │   └── Tool.tsx                    # Contenedor que carga la herramienta activa

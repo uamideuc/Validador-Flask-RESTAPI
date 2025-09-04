@@ -116,7 +116,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         sx={{ mb: 2 }}
       >
         <AccordionSummary>
-          <Typography variant="h6">🔍 Validación de Duplicados</Typography>
+          <Typography variant="h6">🔍 Validación de Repetidos</Typography>
           <Chip 
             label={getStatusText(duplicateValidation.is_valid)} 
             color={getStatusColor(duplicateValidation.is_valid)}
@@ -129,7 +129,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
             <Box>
               <Alert severity="error" sx={{ mb: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
-                  Se encontraron {duplicateValidation.duplicate_items.length} ítems duplicados
+                  Se encontraron {duplicateValidation.duplicate_items.length} ítems repetidos
                 </Typography>
               </Alert>
               <TableContainer component={Paper}>
@@ -159,10 +159,35 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
             </Box>
           ) : (
             <Alert severity="success">
-              <Typography>✓ No se encontraron ítems duplicados</Typography>
+              <Typography>✓ No se encontraron ítems repetidos</Typography>
             </Alert>
           )}
           
+          {/* Missing Values in Identifiers */}
+          {duplicateValidation.missing_values_in_identifiers && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: '#f57c00' }}>
+                🚨 Valores Faltantes en Identificadores
+              </Typography>
+              {duplicateValidation.missing_values_in_identifiers.has_missing_values ? (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Se encontraron valores faltantes en columnas de identificación:
+                  </Typography>
+                  {duplicateValidation.missing_values_in_identifiers.details.map((detail) => (
+                    <Typography key={detail.column} variant="body2" sx={{ ml: 2 }}>
+                      • <strong>{detail.column}:</strong> {detail.missing_count} valores faltantes ({detail.percentage}%)
+                    </Typography>
+                  ))}
+                </Alert>
+              ) : (
+                <Alert severity="success">
+                  <Typography>✓ No se encontraron valores faltantes en columnas de identificación</Typography>
+                </Alert>
+              )}
+            </Box>
+          )}
+
           {/* Validation Parameters */}
           {duplicateValidation.validation_parameters && (
             <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1 }}>
@@ -190,7 +215,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         sx={{ mb: 2 }}
       >
         <AccordionSummary>
-          <Typography variant="h6">📋 Validación de Metadata</Typography>
+          <Typography variant="h6">📋 Validación de Información Crítica</Typography>
           <Chip 
             label={getStatusText(metadataValidation.is_valid)} 
             color={getStatusColor(metadataValidation.is_valid)}
@@ -202,7 +227,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
           {metadataValidation.completeness_stats && (
             <Box>
               <Typography variant="subtitle1" gutterBottom>
-                Completitud por Variable de Metadata
+                Completitud por Columna de Información Crítica
               </Typography>
               {Object.entries(metadataValidation.completeness_stats).map(([variable, percentage]) => (
                 <Box key={variable} sx={{ mb: 2 }}>
@@ -228,7 +253,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               {metadataValidation.unique_values_summary && (
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="subtitle1" gutterBottom>
-                    Valores Únicos por Variable
+                    Valores Únicos por Columna
                   </Typography>
                   {Object.entries(metadataValidation.unique_values_summary).map(([variable, values]) => (
                     <Box key={variable} sx={{ mb: 2 }}>
@@ -280,7 +305,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         sx={{ mb: 2 }}
       >
         <AccordionSummary>
-          <Typography variant="h6">🏷️ Análisis de Variables de Clasificación</Typography>
+          <Typography variant="h6">🏷️ Análisis de Información Complementaria</Typography>
           <Chip 
             label={classificationValidation.warnings && classificationValidation.warnings.length > 0 ? 'ADVERTENCIAS' : 'OK'} 
             color={classificationValidation.warnings && classificationValidation.warnings.length > 0 ? 'warning' : 'success'}
@@ -292,7 +317,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
           {classificationValidation.unique_counts_per_instrument && (
             <Box>
               <Typography variant="subtitle1" gutterBottom>
-                Valores Únicos por Instrumento
+                Valores Únicos por Instrumento - Haz clic para ver detalles
               </Typography>
               {Object.entries(classificationValidation.unique_counts_per_instrument).map(([instrument, variables]) => (
                 <Box key={instrument} sx={{ mb: 3 }}>
@@ -301,14 +326,32 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
                   </Typography>
                   <Grid container spacing={2}>
                     {Object.entries(variables || {}).map(([variable, count]) => (
-                      <Grid item xs={6} md={4} key={variable}>
-                        <Card variant="outlined">
+                      <Grid item xs={12} sm={6} md={4} key={variable}>
+                        <Card 
+                          variant="outlined" 
+                          sx={{ 
+                            cursor: 'pointer',
+                            '&:hover': { 
+                              backgroundColor: '#f5f5f5',
+                              boxShadow: 2
+                            },
+                            transition: 'all 0.2s ease-in-out'
+                          }}
+                          onClick={() => {
+                            setSelectedVariable(variable);
+                            setSelectedInstrument(instrument);
+                            setModalOpen(true);
+                          }}
+                        >
                           <CardContent sx={{ p: 2 }}>
-                            <Typography variant="h6" color="primary">
+                            <Typography variant="h6" color="primary" gutterBottom>
                               {count}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
                               {variable}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              valores únicos • clic para detalles
                             </Typography>
                           </CardContent>
                         </Card>
@@ -354,60 +397,6 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         </AccordionDetails>
       </Accordion>
 
-      {/* Classification Values Detail */}
-      <Accordion 
-        expanded={expandedSections.includes('classification-values')}
-        onChange={() => handleSectionToggle('classification-values')}
-        sx={{ mb: 2 }}
-      >
-        <AccordionSummary>
-          <Typography variant="h6">📈 Detalle de Valores de Clasificación</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          {classificationValidation.unique_counts_per_instrument && (
-            <Box>
-              {Object.entries(classificationValidation.unique_counts_per_instrument).map(([instrument, variables]) => (
-                <Box key={instrument} sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                    {getInstrumentDisplayName(instrument)}
-                  </Typography>
-                  <Grid container spacing={2}>
-                    {Object.entries(variables || {}).map(([variable, count]) => (
-                      <Grid item xs={12} sm={6} md={4} key={variable}>
-                        <Card 
-                          variant="outlined" 
-                          sx={{ 
-                            cursor: 'pointer',
-                            '&:hover': { backgroundColor: '#f5f5f5' }
-                          }}
-                          onClick={() => {
-                            setSelectedVariable(variable);
-                            setSelectedInstrument(instrument);
-                            setModalOpen(true);
-                          }}
-                        >
-                          <CardContent sx={{ p: 2 }}>
-                            <Typography variant="h6" color="primary" gutterBottom>
-                              {count}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {variable}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              valores únicos
-                            </Typography>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              ))}
-            </Box>
-          )}
-        </AccordionDetails>
-      </Accordion>
-
       {/* Export Options */}
       <Paper sx={{ p: 3, mt: 3 }}>
         <Typography variant="h6" gutterBottom>
@@ -420,7 +409,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               style={{
                 width: '100%',
                 padding: '12px 24px',
-                backgroundColor: '#1976d2',
+                backgroundColor: '#4caf50',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -441,7 +430,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               style={{
                 width: '100%',
                 padding: '12px 24px',
-                backgroundColor: '#ff9800',
+                backgroundColor: '#4caf50',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -462,7 +451,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               style={{
                 width: '100%',
                 padding: '12px 24px',
-                backgroundColor: '#2e7d32',
+                backgroundColor: '#f44336',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',

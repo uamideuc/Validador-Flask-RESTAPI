@@ -80,7 +80,7 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = os.environ.get('SECRET_KEY')
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
     app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
-    app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))
+    app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 1 * 1024 * 1024 * 1024))
     
     # SECURITY: Environment-specific CORS configuration
     flask_env = os.environ.get('FLASK_ENV', 'development')

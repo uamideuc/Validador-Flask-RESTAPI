@@ -82,10 +82,10 @@ const Login: React.FC = () => {
             }} 
           />
           <Typography variant="h3" component="h1" gutterBottom>
-            Validador de Instrumentos
+            Validador de Ensamblajes
           </Typography>
           <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
-            Sistema de Validación de Instrumentos Educativos
+            Sistema de Validación de Bases de Datos de Ensamblajes
           </Typography>
         </Box>
 
@@ -176,30 +176,15 @@ const Login: React.FC = () => {
                   Verificando acceso...
                 </>
               ) : (
-                'Ingresar al Sistema'
+                'Entrar'
               )}
             </Button>
           </form>
         </Paper>
 
-        {/* Info Cards */}
-        <Box sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <Card sx={{ flex: 1, minWidth: '280px' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Info sx={{ color: 'info.main', mr: 1 }} />
-                <Typography variant="h6" color="info.main">
-                  Información
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                La clave institucional la proporciona su administrador de sistema.
-                Su sesión expirará automáticamente después de 24 horas por seguridad.
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ flex: 1, minWidth: '280px' }}>
+        {/* Security Card */}
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+          <Card sx={{ maxWidth: '400px' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Security sx={{ color: 'success.main', mr: 1 }} />
@@ -219,7 +204,7 @@ const Login: React.FC = () => {
         <Box sx={{ textAlign: 'center', mt: 4 }}>
           <Divider sx={{ mb: 2 }} />
           <Typography variant="caption" color="text.secondary">
-            Validador de Instrumentos v2.0 • Sistema Seguro de Validación
+            Validador de Bases de Datos v2.0 • Sistema Seguro de Validación
           </Typography>
           <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
             Desarrollado con tecnologías de seguridad empresarial

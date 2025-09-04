@@ -1,5 +1,5 @@
 import React from 'react';
-import { Container, Typography, Box, CircularProgress, AppBar, Toolbar, IconButton } from '@mui/material';
+import { Container, Typography, Box, CircularProgress, AppBar, Toolbar, IconButton, Tooltip } from '@mui/material';
 import { Logout } from '@mui/icons-material';
 import { AuthProvider, useAuth } from './core/auth';
 import { ToolsProvider, useTools } from './core/ToolStateContext';
@@ -29,14 +29,14 @@ function AppContent() {
   const availableTools = [
     {
       id: 'ensamblaje',
-      label: 'Validador de Ensamblaje',
+      label: 'Validador de Bases de Datos de Ensamblajes',
       icon: 'build' as const,
       status: getToolStatus('ensamblaje'),
       available: true
     },
     {
       id: 'respuestas',
-      label: 'Validador de Respuestas',
+      label: 'Validador de Bases de Datos de Respuestas',
       icon: 'assessment' as const,
       status: getToolStatus('respuestas'),
       available: true // Clickeable para mostrar "en construcción"
@@ -57,15 +57,17 @@ function AppContent() {
       <AppBar position="static" color="primary">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Validador de Instrumentos - Sesión Activa
+            Validador de Bases de Datos - Sesión Activa
           </Typography>
-          <IconButton
-            color="inherit"
-            onClick={handleLogout}
-            title="Cerrar Sesión"
-          >
-            <Logout />
-          </IconButton>
+          <Tooltip title="Cerrar Sesión" arrow>
+            <IconButton
+              color="inherit"
+              onClick={handleLogout}
+              aria-label="Cerrar Sesión"
+            >
+              <Logout />
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
 

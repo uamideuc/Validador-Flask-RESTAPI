@@ -3,23 +3,34 @@ import {
   Box,
   Typography,
   Paper,
+  Chip,
+  Grid,
   Button,
   Alert,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
-import { ExpandMore, Warning as WarningIcon } from '@mui/icons-material';
-import { DndProvider } from 'react-dnd';
+import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Visibility, VisibilityOff, RestartAlt, Warning as WarningIcon, AutoAwesome } from '@mui/icons-material';
+import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import DataPreview from './DataPreview';
 import SingleInstrumentConfirmation from './SingleInstrumentConfirmation';
-import FileInfoDisplay from './variable-categorization/FileInfoDisplay';
-import VariableSelectionPanel from './variable-categorization/VariableSelectionPanel';
-import CategoryDropZones, { CATEGORIES } from './variable-categorization/CategoryDropZones';
-import CategoryActions from './variable-categorization/CategoryActions';
-import { AutoCategorizer, type AutoCategorizationProposal } from './variable-categorization/AutoCategorizer';
-import AutoCategorizationDialog from './variable-categorization/AutoCategorizationDialog';
 import ApiService from '../../../core/api';
 import { useEnsamblajeState } from '../../../core/ToolStateContext';
 
@@ -49,8 +60,203 @@ interface VariableCategorizationProps {
   savedCategorization?: any; // Estado persistido para restaurar categorización anterior
 }
 
+interface CategoryConfig {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+  examples: string[];
+}
 
+// Mapeo común para autocategorización
+const AUTO_CATEGORIZATION_MAPPING: Record<string, string> = {
+  // Identificación de Instrumento
+  'instrumento': 'instrument_vars',
+  'sector': 'instrument_vars',
+  'forma': 'instrument_vars',
+  'cuadernillo': 'instrument_vars',
+  'nivel': 'instrument_vars',
+  'grado': 'instrument_vars',
+  'tipo': 'instrument_vars',
+  
+  // Identificación de Ítems
+  'id_item': 'item_id_vars',
+  'item_id': 'item_id_vars',
+  'numero_item': 'item_id_vars',
+  'codigo_item': 'item_id_vars',
+  'id_pregunta': 'item_id_vars',
+  'pregunta_id': 'item_id_vars',
+  
+  // Información Crítica
+  'invertido': 'metadata_vars',
+  'ancla': 'metadata_vars',
+  'clave': 'metadata_vars',
+  'valores_validos': 'metadata_vars',
+  'valores_invalidos': 'metadata_vars',
+  'puntaje': 'metadata_vars',
+  'peso': 'metadata_vars',
+  
+  // Información Complementaria
+  'dimension': 'classification_vars',
+  'subdimension': 'classification_vars',
+  'enunciado': 'classification_vars',
+  'texto_pregunta': 'classification_vars',
+  'competencia': 'classification_vars',
+  'habilidad': 'classification_vars',
+  'contenido': 'classification_vars'
+};
 
+const CATEGORIES: CategoryConfig[] = [
+  {
+    id: 'instrument_vars',
+    title: '1. Identificación de Instrumento',
+    description: 'Columnas que identifican y distinguen diferentes instrumentos (ej: instrumento, sector, forma, nivel)',
+    icon: <Assignment />,
+    color: '#1976d2',
+    examples: ['instrumento', 'sector', 'forma', 'cuadernillo', 'nivel', 'grado']
+  },
+  {
+    id: 'item_id_vars',
+    title: '2. Identificación de Ítems',
+    description: 'Columnas que identifican únicamente cada ítem dentro de un instrumento',
+    icon: <Category />,
+    color: '#388e3c',
+    examples: ['id_item', 'item_id', 'numero_item', 'codigo_item']
+  },
+  {
+    id: 'metadata_vars',
+    title: '3. Información Crítica',
+    description: 'Columnas con información técnica del ítem que DEBE estar siempre completa',
+    icon: <Info />,
+    color: '#f57c00',
+    examples: ['invertido', 'ancla', 'clave', 'valores_validos', 'valores_invalidos']
+  },
+  {
+    id: 'classification_vars',
+    title: '4. Información Complementaria',
+    description: 'Columnas que clasifican o describen el contenido del ítem (puede tener valores vacíos)',
+    icon: <Class />,
+    color: '#7b1fa2',
+    examples: ['dimension', 'subdimension', 'enunciado', 'texto_pregunta', 'competencia']
+  }
+];
+
+const ItemType = 'VARIABLE';
+
+interface DraggableVariableProps {
+  variable: Variable;
+  onRemove?: () => void;
+  isDragging?: boolean;
+  onClick?: () => void;
+  isSelected?: boolean;
+}
+
+const DraggableVariable: React.FC<DraggableVariableProps> = ({ 
+  variable, 
+  onRemove, 
+  isDragging, 
+  onClick,
+  isSelected 
+}) => {
+  const [{ isDragging: dragState }, drag] = useDrag({
+    type: ItemType,
+    item: { variable },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  return (
+    <Chip
+      ref={drag}
+      label={variable.name}
+      onDelete={onRemove}
+      onClick={onClick}
+      icon={<DragIndicator />}
+      sx={{
+        m: 0.5,
+        cursor: onClick ? 'pointer' : 'grab',
+        opacity: dragState || isDragging ? 0.5 : 1,
+        backgroundColor: isSelected ? '#e3f2fd' : undefined,
+        borderColor: isSelected ? '#1976d2' : undefined,
+        borderWidth: isSelected ? '2px' : '1px',
+        '&:active': {
+          cursor: 'grabbing',
+        },
+        '&:hover': {
+          backgroundColor: isSelected ? '#bbdefb' : undefined,
+        }
+      }}
+      variant="outlined"
+      color={isSelected ? 'primary' : 'default'}
+    />
+  );
+};
+
+interface DropZoneProps {
+  category: CategoryConfig;
+  variables: Variable[];
+  onDrop: (variable: Variable) => void;
+  onRemove: (variable: Variable) => void;
+}
+
+const DropZone: React.FC<DropZoneProps> = ({ category, variables, onDrop, onRemove }) => {
+  const [{ isOver, canDrop }, drop] = useDrop({
+    accept: ItemType,
+    drop: (item: { variable: Variable }) => {
+      onDrop(item.variable);
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  });
+
+  const isActive = isOver && canDrop;
+
+  return (
+    <Paper
+      ref={drop}
+      elevation={isActive ? 8 : 2}
+      sx={{
+        p: 2,
+        minHeight: 120,
+        border: `2px dashed ${isActive ? category.color : '#ccc'}`,
+        backgroundColor: isActive ? `${category.color}15` : '#fafafa',
+        transition: 'all 0.3s ease',
+      }}
+    >
+      <Box display="flex" alignItems="center" gap={1} mb={1}>
+        <Box sx={{ color: category.color }}>{category.icon}</Box>
+        <Typography variant="h6" sx={{ color: category.color }}>
+          {category.title}
+        </Typography>
+        <Chip label={variables.length} size="small" />
+      </Box>
+      
+      <Typography variant="body2" color="text.secondary" gutterBottom>
+        {category.description}
+      </Typography>
+      
+      <Box sx={{ minHeight: 60 }}>
+        {variables.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            Arrastra columnas aquí...
+          </Typography>
+        ) : (
+          variables.map((variable, index) => (
+            <DraggableVariable
+              key={`${category.id}-${variable.name}-${index}`}
+              variable={variable}
+              onRemove={() => onRemove(variable)}
+            />
+          ))
+        )}
+      </Box>
+    </Paper>
+  );
+};
 
 const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   variables,
@@ -143,7 +349,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     }));
   };
 
-  // Estado inicial simple para evitar loop infinito
+  // 🚨 CRÍTICO: Estado inicial simple para evitar loop infinito
   const [categorizedVariables, setCategorizedVariables] = useState<Record<string, Variable[]>>({
     instrument_vars: [],
     item_id_vars: [],
@@ -159,7 +365,11 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const [unnamedColumnsInfo, setUnnamedColumnsInfo] = useState<UnnamedColumnsInfo | null>(null);
   const [selectedVariables, setSelectedVariables] = useState<Set<string>>(new Set());
   const [showAutoCategoryDialog, setShowAutoCategoryDialog] = useState(false);
-  const [autoCategoryProposals, setAutoCategoryProposals] = useState<AutoCategorizationProposal[]>([]);
+  const [autoCategoryProposals, setAutoCategoryProposals] = useState<Array<{
+    variable: Variable;
+    categoryId: string;
+    categoryTitle: string;
+  }>>([]);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -355,10 +565,44 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
   // Auto-categorization logic
   const handleAutoCategorizationClick = useCallback(() => {
-    const result = AutoCategorizer.categorize(uncategorizedVariables, CATEGORIES);
+    const proposals: Array<{
+      variable: Variable;
+      categoryId: string;
+      categoryTitle: string;
+    }> = [];
 
-    if (result.hasProposals) {
-      setAutoCategoryProposals(result.proposals);
+    uncategorizedVariables.forEach(variable => {
+      const variableNameLower = variable.name.toLowerCase()
+        .replace(/[_\s-]+/g, '_') // Normalize separators
+        .replace(/^_+|_+$/g, ''); // Remove leading/trailing underscores
+
+      // Find exact match first
+      let categoryId = AUTO_CATEGORIZATION_MAPPING[variableNameLower];
+      
+      // If no exact match, try partial matches
+      if (!categoryId) {
+        for (const [key, value] of Object.entries(AUTO_CATEGORIZATION_MAPPING)) {
+          if (variableNameLower.includes(key) || key.includes(variableNameLower)) {
+            categoryId = value;
+            break;
+          }
+        }
+      }
+
+      if (categoryId) {
+        const category = CATEGORIES.find(cat => cat.id === categoryId);
+        if (category) {
+          proposals.push({
+            variable,
+            categoryId,
+            categoryTitle: category.title
+          });
+        }
+      }
+    });
+
+    if (proposals.length > 0) {
+      setAutoCategoryProposals(proposals);
       setShowAutoCategoryDialog(true);
     } else {
       setError('No se encontraron sugerencias de categorización para las columnas actuales.');
@@ -519,7 +763,23 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         </Typography>
 
         {/* File Info */}
-        <FileInfoDisplay uploadedFilename={uploadedFilename} sheetName={sheetName} />
+        {(uploadedFilename || sheetName) && (
+          <Paper sx={{ p: 2, mb: 3, backgroundColor: '#f8f9fa', border: '1px solid #e0e0e0' }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', color: '#1976d2' }}>
+              📄 Información del Archivo
+            </Typography>
+            {uploadedFilename && (
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Archivo:</strong> {uploadedFilename}
+              </Typography>
+            )}
+            {sheetName && (
+              <Typography variant="body2">
+                <strong>Hoja:</strong> {sheetName}
+              </Typography>
+            )}
+          </Paper>
+        )}
 
         {/* Unnamed columns warning */}
         {unnamedColumnsInfo && unnamedColumnsInfo.has_unnamed && (
@@ -571,22 +831,44 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         </Paper>
 
         {/* Control Buttons */}
-        <CategoryActions
-          showPreview={showPreview}
-          onTogglePreview={() => setShowPreview(!showPreview)}
-          uncategorizedVariables={uncategorizedVariables}
-          totalCategorized={totalCategorized}
-          onAutoCategorizationClick={handleAutoCategorizationClick}
-          onClearAllCategorization={handleClearAllCategorization}
-        />
-
-        {/* Auto-categorization Dialog */}
-        <AutoCategorizationDialog
-          open={showAutoCategoryDialog}
-          proposals={autoCategoryProposals}
-          onAccept={handleAutoCategorizationAccept}
-          onCancel={handleAutoCategorizationCancel}
-        />
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Tooltip title={showPreview ? "Ocultar preview de datos" : "Ver preview de datos para verificar columnas"}>
+            <Button
+              variant={showPreview ? "contained" : "outlined"}
+              startIcon={showPreview ? <VisibilityOff /> : <Visibility />}
+              onClick={() => setShowPreview(!showPreview)}
+              sx={{ minWidth: 180 }}
+            >
+              {showPreview ? 'Ocultar Preview' : 'Ver Preview de Datos'}
+            </Button>
+          </Tooltip>
+          
+          <Tooltip title="Sugerir categorización automática basada en nombres comunes de columnas">
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<AutoAwesome />}
+              onClick={handleAutoCategorizationClick}
+              disabled={uncategorizedVariables.length === 0}
+              sx={{ minWidth: 180 }}
+            >
+              Autocategorizar
+            </Button>
+          </Tooltip>
+          
+          <Tooltip title="Mover todas las variables categorizadas de vuelta a sin categorizar">
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<RestartAlt />}
+              onClick={handleClearAllCategorization}
+              disabled={totalCategorized === 0}
+              sx={{ minWidth: 180 }}
+            >
+              Limpiar Categorización
+            </Button>
+          </Tooltip>
+        </Box>
 
         {/* Data Preview Component */}
         {showPreview && (
@@ -600,19 +882,85 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         )}
 
         {/* Uncategorized variables */}
-        <VariableSelectionPanel
-          uncategorizedVariables={uncategorizedVariables}
-          selectedVariables={selectedVariables}
-          onVariableSelect={handleVariableSelect}
-          onClearSelection={clearSelection}
-        />
+        {uncategorizedVariables.length > 0 && (
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                Columnas sin categorizar ({uncategorizedVariables.length})
+                {selectedVariables.size > 0 && (
+                  <Chip 
+                    label={`${selectedVariables.size} seleccionadas`} 
+                    size="small" 
+                    color="primary" 
+                    sx={{ ml: 1 }}
+                  />
+                )}
+              </Typography>
+              {selectedVariables.size > 0 && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={clearSelection}
+                >
+                  Limpiar Selección
+                </Button>
+              )}
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              💡 Haz clic en las columnas para seleccionar múltiples antes de arrastrar
+            </Typography>
+            <Box>
+              {uncategorizedVariables.map((variable, index) => (
+                <DraggableVariable
+                  key={`uncategorized-${variable.name}-${index}`}
+                  variable={variable}
+                  onClick={() => handleVariableSelect(variable.name)}
+                  isSelected={selectedVariables.has(variable.name)}
+                />
+              ))}
+            </Box>
+          </Paper>
+        )}
 
         {/* Category drop zones */}
-        <CategoryDropZones
-          categorizedVariables={categorizedVariables}
-          onDrop={handleDrop}
-          onRemove={handleRemove}
-        />
+        <Grid container spacing={3}>
+          {CATEGORIES.map((category) => (
+            <Grid item xs={12} md={6} key={category.id}>
+              <DropZone
+                category={category}
+                variables={categorizedVariables[category.id]}
+                onDrop={(variable) => handleDrop(category.id, variable)}
+                onRemove={(variable) => handleRemove(category.id, variable)}
+              />
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Examples accordion */}
+        <Accordion sx={{ mt: 3 }}>
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Typography variant="h6">Ejemplos de Columnas por Categoría</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Grid container spacing={2}>
+              {CATEGORIES.map((category) => (
+                <Grid item xs={12} md={6} key={category.id}>
+                  <Typography variant="subtitle1" sx={{ color: category.color, fontWeight: 'bold' }}>
+                    {category.title}
+                  </Typography>
+                  <List dense>
+                    {category.examples.map((example, index) => (
+                      <ListItem key={index}>
+                        <ListItemText primary={example} />
+                      </ListItem>
+                    ))}
+                  </List>
+                  {category.id !== CATEGORIES[CATEGORIES.length - 1].id && <Divider />}
+                </Grid>
+              ))}
+            </Grid>
+          </AccordionDetails>
+        </Accordion>
 
         {/* Mostrar alerta si hay cambios después de validación */}
         {ensamblajeState.hasChangesAfterValidation && (
@@ -653,6 +1001,64 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           classificationVariables={categorizedVariables.classification_vars.map(v => v.name)}
         />
 
+        {/* Auto-categorization Confirmation Dialog */}
+        <Dialog 
+          open={showAutoCategoryDialog} 
+          onClose={handleAutoCategorizationCancel}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            🤖 Sugerencias de Categorización Automática
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" gutterBottom>
+              Se encontraron {autoCategoryProposals.length} sugerencias de categorización basadas en nombres comunes de columnas:
+            </Typography>
+            
+            <TableContainer component={Paper} sx={{ mt: 2 }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell><strong>Columna</strong></TableCell>
+                    <TableCell><strong>Categoría Sugerida</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {autoCategoryProposals.map(({ variable, categoryTitle }) => (
+                    <TableRow key={variable.name}>
+                      <TableCell>
+                        <Chip label={variable.name} size="small" variant="outlined" />
+                      </TableCell>
+                      <TableCell>{categoryTitle}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <Alert severity="info" sx={{ mt: 2 }}>
+              <Typography variant="body2">
+                <strong>¿Deseas aplicar estas sugerencias?</strong><br />
+                Las columnas se moverán automáticamente a las categorías propuestas. 
+                Siempre puedes moverlas manualmente después si es necesario.
+              </Typography>
+            </Alert>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleAutoCategorizationCancel} color="inherit">
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleAutoCategorizationAccept} 
+              variant="contained" 
+              color="primary"
+              startIcon={<AutoAwesome />}
+            >
+              Aplicar Sugerencias
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </DndProvider>
   );

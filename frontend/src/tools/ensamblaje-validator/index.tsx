@@ -21,7 +21,7 @@ import ValidationReport from './components/ValidationReport.jsx';
 
 const steps = [
   'Subir Archivo',
-  'Categorizar Variables',
+  'Categorizar Columnas',
   'Validar y Reportar'
 ];
 
@@ -42,6 +42,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   const {
     activeStep,
     uploadId,
+    uploadedFilename,
     parseData,
     validationResults,
     validationSessionId,
@@ -74,6 +75,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   const handleFileUploaded = (data: any) => {
     setEnsamblajeState({ 
       uploadId: data.upload_id,
+      uploadedFilename: data.filename,
       error: ''
     });
   };
@@ -201,7 +203,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="warning">
-          Debe iniciar sesión para acceder al Validador de Instrumentos de Ensamblaje
+          Debe iniciar sesión para acceder al Validador de Bases de Datos de Ensamblajes
         </Alert>
       </Box>
     );
@@ -224,6 +226,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
             onCategorization={handleCategorizationComplete}
             uploadId={uploadId!}
             sheetName={parseData.sheet_name}
+            uploadedFilename={uploadedFilename}
             savedCategorization={savedCategorization}
           />
         ) : null;
@@ -244,22 +247,37 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   return (
     <Box sx={{ p: 3 }}>
       <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography variant="h4" component="h1">
-            Validador de Instrumentos de Ensamblaje
-          </Typography>
-          {hasChangesAfterValidation && (
-            <Chip 
-              label="Cambios sin guardar" 
-              color="warning" 
-              variant="outlined" 
-              size="small"
-              sx={{ fontWeight: 500 }}
-            />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h4" component="h1">
+              Validador de Bases de Datos
+            </Typography>
+            {hasChangesAfterValidation && (
+              <Chip 
+                label="Cambios sin guardar" 
+                color="warning" 
+                variant="outlined" 
+                size="small"
+                sx={{ fontWeight: 500 }}
+              />
+            )}
+          </Box>
+          
+          {/* Botón Reiniciar Proceso en header */}
+          {(parseData || hasCompletedValidation) && (
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={handleReset}
+              disabled={isLoading}
+              startIcon={<span>↻</span>}
+            >
+              Reiniciar Proceso
+            </Button>
           )}
         </Box>
         <Typography variant="body1" color="text.secondary" paragraph>
-          Herramienta especializada para validación de instrumentos educativos de tipo ensamblaje
+          Herramienta especializada para validación de bases de datos de ensamblaje
         </Typography>
       </Paper>
 
@@ -319,20 +337,6 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
             >
               Paso Anterior
             </Button>
-            
-            {/* Botón Reiniciar Proceso cuando hay datos */}
-            {(parseData || hasCompletedValidation) && (
-              <Button
-                variant="outlined"
-                color="warning"
-                onClick={handleReset}
-                disabled={isLoading}
-                size="small"
-                sx={{ ml: 1 }}
-              >
-                Reiniciar Proceso
-              </Button>
-            )}
           </Box>
           
           <Typography variant="body2" color="text.secondary">

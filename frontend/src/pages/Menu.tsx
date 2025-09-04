@@ -25,15 +25,15 @@ const Menu: React.FC<MenuProps> = ({ onToolSelect }) => {
   const availableTools: ToolInfo[] = [
     {
       id: 'ensamblaje',
-      name: 'Validador de Ensamblaje',
-      description: 'Herramienta especializada para validación de instrumentos educativos de tipo ensamblaje. Analiza duplicados, metadatos y clasificaciones.',
+      name: 'Validador de Bases de Datos de Ensamblajes',
+      description: 'Herramienta especializada para validación de bases de datos de ensamblaje.',
       icon: 'build',
       status: getToolStatus('ensamblaje'),
       available: true
     },
     {
       id: 'respuestas',
-      name: 'Validador de Respuestas',
+      name: 'Validador de Bases de Datos de Respuestas',
       description: 'Herramienta para validación de bases de datos de respuestas. Actualmente en desarrollo.',
       icon: 'assessment',
       status: getToolStatus('respuestas'),
@@ -109,9 +109,8 @@ const Menu: React.FC<MenuProps> = ({ onToolSelect }) => {
           <Typography variant="body2" color="text.secondary">
             1. Selecciona la herramienta adecuada para tu tipo de validación<br/>
             2. Sube tu archivo de datos (Excel o CSV)<br/>
-            3. Categoriza las variables según el tipo de instrumento<br/>
-            4. Obtén reportes detallados con validaciones y exportaciones<br/>
-            5. Cambia entre herramientas sin perder tu progreso
+            3. Categoriza las columnas según el tipo de base de datos<br/>
+            4. Obtén reportes detallados con validaciones y exportaciones
           </Typography>
         </Paper>
       </Box>

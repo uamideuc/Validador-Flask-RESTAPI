@@ -11,6 +11,8 @@ from werkzeug.utils import secure_filename
 import uuid
 from datetime import datetime
 from .security_service import FileSecurityValidator
+from .file_handling.file_parser import FileParser
+from .file_handling.data_cleaner import DataCleaner
 
 
 class FileUploadService:
@@ -25,15 +27,17 @@ class FileUploadService:
     - Session-based file isolation
     """
     
-    ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
-    MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
+    ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls', 'txt'}
+    MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024  # 1GB
     
     def __init__(self, upload_folder: str):
         self.upload_folder = upload_folder
         os.makedirs(upload_folder, exist_ok=True)
         
-        # Initialize security validator
+        # Initialize specialized services
         self.security_validator = FileSecurityValidator(max_file_size=self.MAX_FILE_SIZE)
+        self.file_parser = FileParser()
+        self.data_cleaner = DataCleaner()
     
     def validate_file_format(self, file: FileStorage) -> bool:
         """Validate if file format is supported"""
@@ -74,7 +78,7 @@ class FileUploadService:
             if not self.validate_file_size(file):
                 return {
                     'success': False,
-                    'error': f'Archivo demasiado grande. Máximo {self.MAX_FILE_SIZE // (1024*1024)}MB.',
+                    'error': f'Archivo demasiado grande. Máximo {self.MAX_FILE_SIZE // (1024*1024*1024)}GB.',
                     'error_code': 'FILE_TOO_LARGE'
                 }
             
@@ -183,18 +187,14 @@ class FileUploadService:
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"Archivo no encontrado: {file_path}")
             
-            # Determine file type and parse accordingly
-            file_extension = file_path.lower().split('.')[-1]
+            # Parse file using specialized service
+            df = self.file_parser.parse_file(file_path, sheet_name)
             
-            if file_extension == 'csv':
-                df = self._parse_csv(file_path)
-            elif file_extension in ['xlsx', 'xls']:
-                df = self._parse_excel(file_path, sheet_name)
-            else:
-                raise ValueError(f"Formato de archivo no soportado: {file_extension}")
+            # Clean data using specialized service
+            df, cleaning_info = self.data_cleaner.clean_dataframe(df)
             
-            # Handle unnamed columns (returns tuple: df, unnamed_columns_info)
-            df, unnamed_columns_info = self._handle_unnamed_columns(df)
+            # Extract unnamed columns info for backwards compatibility
+            unnamed_columns_info = cleaning_info.get('unnamed_columns', {})
             
             # Get column information
             columns = df.columns.tolist()
@@ -229,129 +229,6 @@ class FileUploadService:
                 'error': f'Error al procesar archivo: {str(e)}',
                 'error_code': 'PARSE_ERROR'
             }
-    
-    def _parse_csv(self, file_path: str) -> pd.DataFrame:
-        """Parse CSV file with automatic encoding detection and UTF-8 conversion"""
-        encodings_to_try = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
-        
-        for encoding in encodings_to_try:
-            try:
-                df = pd.read_csv(file_path, encoding=encoding)
-                print(f"✅ CSV parsed successfully with encoding: {encoding}")
-                
-                # If file was not UTF-8, convert and save it as UTF-8
-                if encoding != 'utf-8':
-                    self._convert_file_to_utf8(file_path, encoding)
-                    print(f"🔄 File converted from {encoding} to UTF-8")
-                
-                return df
-            except UnicodeDecodeError:
-                continue
-            except Exception as e:
-                if encoding == encodings_to_try[-1]:  # Last encoding to try
-                    raise Exception(f"Error parsing CSV: {str(e)}")
-                continue
-        
-        raise Exception("No se pudo determinar la codificación del archivo CSV")
-    
-    def _convert_file_to_utf8(self, file_path: str, source_encoding: str) -> None:
-        """Convert file from source encoding to UTF-8"""
-        try:
-            # Create backup path
-            backup_path = f"{file_path}.backup"
-            
-            # Read file with source encoding
-            with open(file_path, 'r', encoding=source_encoding) as source_file:
-                content = source_file.read()
-            
-            # Create backup of original file
-            with open(backup_path, 'w', encoding=source_encoding) as backup_file:
-                backup_file.write(content)
-            
-            # Write file with UTF-8 encoding
-            with open(file_path, 'w', encoding='utf-8') as target_file:
-                target_file.write(content)
-            
-            # Remove backup if conversion successful
-            os.remove(backup_path)
-            
-        except Exception as e:
-            # If conversion fails, restore from backup if it exists
-            backup_path = f"{file_path}.backup"
-            if os.path.exists(backup_path):
-                os.replace(backup_path, file_path)
-            raise Exception(f"Error converting file to UTF-8: {str(e)}")
-    
-    def _parse_excel(self, file_path: str, sheet_name: Optional[str] = None) -> pd.DataFrame:
-        """Parse Excel file with optional sheet selection"""
-        try:
-            if sheet_name:
-                df = pd.read_excel(file_path, sheet_name=sheet_name)
-            else:
-                # Use first sheet by default
-                df = pd.read_excel(file_path)
-            
-            print(f"✅ Excel parsed successfully. Sheet: {sheet_name or 'default'}")
-            return df
-            
-        except Exception as e:
-            raise Exception(f"Error parsing Excel file: {str(e)}")
-    
-    def _handle_unnamed_columns(self, df: pd.DataFrame) -> tuple:
-        """
-        Handle unnamed columns by giving them descriptive names
-        Returns modified DataFrame and info about renamed columns
-        """
-        unnamed_columns_info = {
-            'has_unnamed': False,
-            'renamed_columns': [],
-            'total_unnamed': 0
-        }
-        
-        # Create a copy to avoid modifying original
-        df_copy = df.copy()
-        
-        # Find unnamed columns (typically start with 'Unnamed:' in pandas)
-        renamed_columns = []
-        
-        for i, col in enumerate(df_copy.columns):
-            col_str = str(col)
-            # Check if column is unnamed (pandas pattern) or empty/null
-            if (col_str.startswith('Unnamed:') or 
-                col_str.strip() == '' or 
-                col_str.lower() in ['nan', 'none', 'null'] or
-                pd.isna(col)):
-                
-                new_name = f'col_sin_nombre{i+1}'
-                
-                # Ensure unique name
-                counter = 1
-                original_new_name = new_name
-                while new_name in df_copy.columns:
-                    new_name = f'{original_new_name}_{counter}'
-                    counter += 1
-                
-                # Get sample values for this column
-                sample_values = df_copy.iloc[:, i].dropna().astype(str).unique()[:3].tolist()
-                
-                renamed_columns.append({
-                    'original_name': col_str,
-                    'new_name': new_name,
-                    'column_index': i + 1,
-                    'sample_values': sample_values
-                })
-                
-                # Rename the column
-                df_copy = df_copy.rename(columns={col: new_name})
-        
-        if renamed_columns:
-            unnamed_columns_info = {
-                'has_unnamed': True,
-                'renamed_columns': renamed_columns,
-                'total_unnamed': len(renamed_columns)
-            }
-        
-        return df_copy, unnamed_columns_info
     
     
     def get_data_preview(self, file_path: str, sheet_name: Optional[str] = None, 

@@ -1,0 +1,19 @@
+{
+  "types": [
+    {"type": "feat", "section": "🚀 Features"},
+    {"type": "fix", "section": "🐛 Bug Fixes"},
+    {"type": "refactor", "section": "♻️ Code Refactoring"},
+    {"type": "docs", "section": "📚 Documentation"},
+    {"type": "chore", "section": "🔧 Chores"},
+    {"type": "wip", "section": "🚧 Work in Progress"}
+  ],
+  "releaseCommitMessageFormat": "chore(release): {{currentTag}}",
+  "skip": {
+    "bump": false,
+    "changelog": false,
+    "commit": false,
+    "tag": false
+  },
+  "infile": "CHANGELOG.md",
+  "header": "# Changelog\n\nTodos los cambios notables a este proyecto serán documentados en este archivo.\n\nEl formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/),\ny este proyecto adhiere al [Semantic Versioning](https://semver.org/lang/es/).\n\n"
+}

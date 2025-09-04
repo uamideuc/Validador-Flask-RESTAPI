@@ -6,6 +6,7 @@ import { useAuth } from './auth';
 export interface EnsamblajeState {
   activeStep: number;
   uploadId: number | null;
+  uploadedFilename: string | null; // Nombre original del archivo subido
   parseData: any;
   validationResults: any;
   validationSessionId: number | null;
@@ -52,6 +53,7 @@ const initialState: ToolsState = {
 const initialEnsamblajeState: EnsamblajeState = {
   activeStep: 0,
   uploadId: null,
+  uploadedFilename: null,
   parseData: null,
   validationResults: null,
   validationSessionId: null,

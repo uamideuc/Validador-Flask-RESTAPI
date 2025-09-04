@@ -143,6 +143,16 @@ export class ApiService {
     return response.data;
   }
 
+  static async preValidateCategorization(uploadId: number, categorization: VariableCategorization): Promise<any> {
+    const response = await axios.post(`/api/files/${uploadId}/pre-validate-categorization`, categorization, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
+  }
+
   static async getDataPreview(uploadId: number, sheetName?: string, startRow: number = 0, rowsPerPage: number = 10): Promise<any> {
     const response = await axios.post(`/api/files/${uploadId}/preview`, {
       sheet_name: sheetName,

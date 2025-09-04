@@ -18,8 +18,8 @@ def get_available_tools():
     """
     return {
         'ensamblaje': {
-            'name': 'Validador de Instrumentos de Ensamblaje',
-            'description': 'Herramienta para validación de instrumentos educativos de ensamblaje'
+            'name': 'Validador de Bases de Datos de Ensamblajes',
+            'description': 'Herramienta para validación de bases de datos de ensamblaje'
         }
     }
 

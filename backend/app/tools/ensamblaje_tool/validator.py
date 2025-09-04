@@ -1,5 +1,5 @@
 """
-EnsamblajeValidator - Orquestador delgado para validación de instrumentos de ensamblaje
+EnsamblajeValidator - Orquestador delgado para validación de bases de datos de ensamblajes
 Importa y ejecuta los checks específicos
 """
 import pandas as pd
@@ -16,7 +16,7 @@ from .constants import SINGLE_INSTRUMENT_KEY
 
 class EnsamblajeValidator:
     """
-    Orquestador delgado para validación de ensamblaje
+    Orquestador delgado para validación de bases de datos de ensamblajes
     Importa y ejecuta los checks específicos
     """
     
