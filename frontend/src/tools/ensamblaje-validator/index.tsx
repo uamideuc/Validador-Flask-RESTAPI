@@ -102,20 +102,14 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     executeFileReset(data);
   };
 
-  // 🎯 SOLUCIÓN: Función unificada que ejecuta el reset que funciona correctamente
   const executeFileReset = (newFileData: any) => {
-    // 🚨 CRÍTICO: Mismo reset selectivo que hace handleResetConfirm
+    // Reset selectivo preservando solo sesión (uploadId y filename ya están actualizados)
     const currentLastSessionId = ensamblajeState.lastSessionId;
-    const currentUploadId = ensamblajeState.uploadId;
-    const currentFilename = ensamblajeState.uploadedFilename;
     
-    // Reset selectivo preservando información crítica del archivo actual
     setEnsamblajeState({
       activeStep: 0,
-      // PRESERVAR: uploadId del archivo que se acaba de cargar
-      uploadId: currentUploadId,
-      uploadedFilename: currentFilename,
-      parseData: null, // 🎯 CRÍTICO: Limpiar datos antiguos primero
+      // NO preservar uploadId/filename - usar los ya actualizados del nuevo archivo
+      parseData: null,
       validationResults: null,
       validationSessionId: null,
       savedCategorization: null,
@@ -123,13 +117,11 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       hasCompletedValidation: false,
       hasChangesAfterValidation: false,
       hasTemporalChanges: false,
-      // PRESERVAR: lastSessionId crítico para validaciones posteriores
       lastSessionId: currentLastSessionId,
       error: '',
       isLoading: false
     });
     
-    // Proceder con el nuevo archivo después del reset
     proceedWithNewFile(newFileData);
   };
 
@@ -142,7 +134,6 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   };
 
   const handleResetConfirm = () => {
-    // 🎯 SOLUCIÓN: Usar la misma función unificada que funciona correctamente
     executeFileReset(pendingFileData);
     
     // Limpiar estados locales del modal
