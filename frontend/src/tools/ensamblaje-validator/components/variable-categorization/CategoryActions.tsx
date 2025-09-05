@@ -7,22 +7,25 @@ interface Variable {
   sampleValues: string[];
 }
 
-interface CategoryActionsProps {
+// Tipos específicos para cada componente
+interface PreviewActionsProps {
   showPreview: boolean;
   onTogglePreview: () => void;
+}
+
+interface CategorizationActionsProps {
   uncategorizedVariables: Variable[];
   totalCategorized: number;
   onAutoCategorizationClick: () => void;
   onClearAllCategorization: () => void;
 }
 
-const CategoryActions: React.FC<CategoryActionsProps> = ({
+interface CategoryActionsProps extends PreviewActionsProps, CategorizationActionsProps {}
+
+// Componente para el botón de preview
+export const PreviewActions: React.FC<PreviewActionsProps> = ({
   showPreview,
-  onTogglePreview,
-  uncategorizedVariables,
-  totalCategorized,
-  onAutoCategorizationClick,
-  onClearAllCategorization
+  onTogglePreview
 }) => {
   return (
     <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
@@ -36,7 +39,19 @@ const CategoryActions: React.FC<CategoryActionsProps> = ({
           {showPreview ? 'Ocultar Preview' : 'Ver Preview de Datos'}
         </Button>
       </Tooltip>
-      
+    </Box>
+  );
+};
+
+// Componente para los botones de categorización
+export const CategorizationActions: React.FC<CategorizationActionsProps> = ({
+  uncategorizedVariables,
+  totalCategorized,
+  onAutoCategorizationClick,
+  onClearAllCategorization
+}) => {
+  return (
+    <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
       <Tooltip title="Sugerir categorización automática basada en nombres comunes de columnas">
         <Button
           variant="outlined"
@@ -62,6 +77,24 @@ const CategoryActions: React.FC<CategoryActionsProps> = ({
           Limpiar Categorización
         </Button>
       </Tooltip>
+    </Box>
+  );
+};
+
+// Componente original para retrocompatibilidad
+const CategoryActions: React.FC<CategoryActionsProps> = (props) => {
+  return (
+    <Box>
+      <PreviewActions 
+        showPreview={props.showPreview}
+        onTogglePreview={props.onTogglePreview}
+      />
+      <CategorizationActions
+        uncategorizedVariables={props.uncategorizedVariables}
+        totalCategorized={props.totalCategorized}
+        onAutoCategorizationClick={props.onAutoCategorizationClick}
+        onClearAllCategorization={props.onClearAllCategorization}
+      />
     </Box>
   );
 };

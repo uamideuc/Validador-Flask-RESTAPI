@@ -44,7 +44,7 @@ const AutoCategorizationDialog: React.FC<AutoCategorizationDialogProps> = ({
       </DialogTitle>
       <DialogContent>
         <Typography variant="body1" gutterBottom>
-          Se encontraron {proposals.length} sugerencias de categorización basadas en nombres comunes de columnas:
+          Se encontraron {proposals.length} sugerencias de categorización basadas en nombres estándar de columnas:
         </Typography>
         
         <TableContainer component={Paper} sx={{ mt: 2 }}>

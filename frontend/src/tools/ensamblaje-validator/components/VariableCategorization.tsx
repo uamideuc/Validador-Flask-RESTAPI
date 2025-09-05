@@ -17,7 +17,7 @@ import SingleInstrumentConfirmation from './SingleInstrumentConfirmation';
 import FileInfoDisplay from './variable-categorization/FileInfoDisplay';
 import VariableSelectionPanel from './variable-categorization/VariableSelectionPanel';
 import CategoryDropZones, { CATEGORIES } from './variable-categorization/CategoryDropZones';
-import CategoryActions from './variable-categorization/CategoryActions';
+import CategoryActions, { PreviewActions, CategorizationActions } from './variable-categorization/CategoryActions';
 import { AutoCategorizer, type AutoCategorizationProposal } from './variable-categorization/AutoCategorizer';
 import AutoCategorizationDialog from './variable-categorization/AutoCategorizationDialog';
 import ApiService from '../../../core/api';
@@ -570,14 +570,10 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           </Box>
         </Paper>
 
-        {/* Control Buttons */}
-        <CategoryActions
+        {/* Preview Actions */}
+        <PreviewActions
           showPreview={showPreview}
           onTogglePreview={() => setShowPreview(!showPreview)}
-          uncategorizedVariables={uncategorizedVariables}
-          totalCategorized={totalCategorized}
-          onAutoCategorizationClick={handleAutoCategorizationClick}
-          onClearAllCategorization={handleClearAllCategorization}
         />
 
         {/* Auto-categorization Dialog */}
@@ -605,6 +601,14 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           selectedVariables={selectedVariables}
           onVariableSelect={handleVariableSelect}
           onClearSelection={clearSelection}
+        />
+
+        {/* Categorization Actions - Positioned between uncategorized and drop zones */}
+        <CategorizationActions
+          uncategorizedVariables={uncategorizedVariables}
+          totalCategorized={totalCategorized}
+          onAutoCategorizationClick={handleAutoCategorizationClick}
+          onClearAllCategorization={handleClearAllCategorization}
         />
 
         {/* Category drop zones */}
