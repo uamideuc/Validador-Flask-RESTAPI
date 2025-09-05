@@ -98,20 +98,13 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       return;
     }
 
-    // Si no hay trabajo previo, proceder directamente
-    proceedWithNewFile(data);
+    // Si no hay trabajo previo, ejecutar el mismo reset que hace handleResetConfirm
+    executeFileReset(data);
   };
 
-  const proceedWithNewFile = (data: any) => {
-    setEnsamblajeState({
-      parseData: data,
-      error: '',
-      activeStep: activeStep + 1
-    });
-  };
-
-  const handleResetConfirm = () => {
-    // 🚨 CRÍTICO: Reset selectivo manteniendo valores esenciales
+  // 🎯 SOLUCIÓN: Función unificada que ejecuta el reset que funciona correctamente
+  const executeFileReset = (newFileData: any) => {
+    // 🚨 CRÍTICO: Mismo reset selectivo que hace handleResetConfirm
     const currentLastSessionId = ensamblajeState.lastSessionId;
     const currentUploadId = ensamblajeState.uploadId;
     const currentFilename = ensamblajeState.uploadedFilename;
@@ -122,7 +115,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       // PRESERVAR: uploadId del archivo que se acaba de cargar
       uploadId: currentUploadId,
       uploadedFilename: currentFilename,
-      parseData: null,
+      parseData: null, // 🎯 CRÍTICO: Limpiar datos antiguos primero
       validationResults: null,
       validationSessionId: null,
       savedCategorization: null,
@@ -136,10 +129,23 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
       isLoading: false
     });
     
-    // Proceder con el nuevo archivo después del reset selectivo
-    proceedWithNewFile(pendingFileData);
+    // Proceder con el nuevo archivo después del reset
+    proceedWithNewFile(newFileData);
+  };
+
+  const proceedWithNewFile = (data: any) => {
+    setEnsamblajeState({
+      parseData: data,
+      error: '',
+      activeStep: activeStep + 1
+    });
+  };
+
+  const handleResetConfirm = () => {
+    // 🎯 SOLUCIÓN: Usar la misma función unificada que funciona correctamente
+    executeFileReset(pendingFileData);
     
-    // Limpiar estados locales
+    // Limpiar estados locales del modal
     setShowResetConfirmation(false);
     setPendingFileData(null);
   };
