@@ -122,7 +122,7 @@ class EnsamblajeToolKit:
     def get_metadata(self) -> Dict[str, Any]:
         """Metadata del toolkit"""
         return {
-            'name': 'Validador de Bases de Datos de Ensamblajes',
+            'name': 'Validador - Ensamblajes',
             'description': 'Herramienta especializada para validación de bases de datos de ensamblajes',
             'version': '1.0.0',
             'category': 'validation',

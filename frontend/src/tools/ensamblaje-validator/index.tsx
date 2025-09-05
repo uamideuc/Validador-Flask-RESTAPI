@@ -309,7 +309,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="h4" component="h1">
-              Validador de Bases de Datos
+              Validador de Bases de Datos de Ensamblajes
             </Typography>
             {hasChangesAfterValidation && (
               <Chip 

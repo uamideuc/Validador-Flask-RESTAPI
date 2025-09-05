@@ -33,7 +33,7 @@ const Menu: React.FC<MenuProps> = ({ onToolSelect }) => {
     },
     {
       id: 'respuestas',
-      name: 'Validador de Bases de Datos de Respuestas',
+      name: 'Validador de Respuestas',
       description: 'Herramienta para validación de bases de datos de respuestas. Actualmente en desarrollo.',
       icon: 'assessment',
       status: getToolStatus('respuestas'),

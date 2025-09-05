@@ -29,7 +29,7 @@ function AppContent() {
   const availableTools = [
     {
       id: 'ensamblaje',
-      label: 'Validador de Bases de Datos de Ensamblajes',
+      label: 'Validador - Ensamblajes',
       icon: 'build' as const,
       status: getToolStatus('ensamblaje'),
       available: true

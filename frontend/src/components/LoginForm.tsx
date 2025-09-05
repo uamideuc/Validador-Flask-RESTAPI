@@ -82,10 +82,10 @@ const Login: React.FC = () => {
             }} 
           />
           <Typography variant="h3" component="h1" gutterBottom>
-            Validador de Ensamblajes
+            Validador de Bases de Datos
           </Typography>
           <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
-            Sistema de Validación de Bases de Datos de Ensamblajes
+            Sistema de Validación de Bases de Datos
           </Typography>
         </Box>
 
@@ -205,9 +205,6 @@ const Login: React.FC = () => {
           <Divider sx={{ mb: 2 }} />
           <Typography variant="caption" color="text.secondary">
             Validador de Bases de Datos v2.0 • Sistema Seguro de Validación
-          </Typography>
-          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-            Desarrollado con tecnologías de seguridad empresarial
           </Typography>
         </Box>
       </Box>
