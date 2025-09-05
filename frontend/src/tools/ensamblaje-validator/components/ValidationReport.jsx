@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, Card, CardContent } from '@mui/material';
 import ClassificationValuesModal from './ClassificationValuesModal';
+import CriticalVariablesAnalysis from './CriticalVariablesAnalysis';
 
 // Helper para mostrar nombres de instrumentos amigables al usuario
 const getInstrumentDisplayName = (instrumentKey, instrumentsDetail = {}) => {
@@ -54,8 +55,18 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
     return isValid ? 'success' : 'error';
   };
 
-  const getStatusText = (isValid) => {
-    return isValid ? 'VÁLIDO' : 'ERRORES ENCONTRADOS';
+  const getStatusText = (isValid, section = '') => {
+    if (isValid) return 'VÁLIDO';
+    
+    // Mensajes específicos por sección para mejor UX
+    switch(section) {
+      case 'metadata':
+        return 'VALORES FALTANTES';
+      case 'duplicates':
+        return 'REPETIDOS ENCONTRADOS';
+      default:
+        return 'ERRORES ENCONTRADOS';
+    }
   };
 
   const handleSectionToggle = (section) => {
@@ -213,7 +224,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         <AccordionSummary>
           <Typography variant="h6">🔍 Validación - Identificador de ítems</Typography>
           <Chip 
-            label={getStatusText(duplicateValidation.is_valid)} 
+            label={getStatusText(duplicateValidation.is_valid, 'duplicates')} 
             color={getStatusColor(duplicateValidation.is_valid)}
             size="small"
             sx={{ ml: 2 }}
@@ -312,84 +323,17 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         <AccordionSummary>
           <Typography variant="h6">📋 Validación - Información crítica</Typography>
           <Chip 
-            label={getStatusText(metadataValidation.is_valid)} 
+            label={getStatusText(metadataValidation.is_valid, 'metadata')} 
             color={getStatusColor(metadataValidation.is_valid)}
             size="small"
             sx={{ ml: 2 }}
           />
         </AccordionSummary>
         <AccordionDetails>
-          {metadataValidation.completeness_stats && (
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>
-                Completitud por Columna de Información Crítica
-              </Typography>
-              {Object.entries(metadataValidation.completeness_stats).map(([variable, percentage]) => (
-                <Box key={variable} sx={{ mb: 2 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="body2">{variable}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {percentage}%
-                    </Typography>
-                  </Box>
-                  <Box sx={{ width: '100%', height: 8, backgroundColor: '#e0e0e0', borderRadius: 4, mt: 1 }}>
-                    <Box
-                      sx={{
-                        width: `${percentage}%`,
-                        height: '100%',
-                        backgroundColor: percentage === 100 ? '#4caf50' : '#ff9800',
-                        borderRadius: 4,
-                      }}
-                    />
-                  </Box>
-                </Box>
-              ))}
-              
-              {metadataValidation.unique_values_summary && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Valores Únicos por Columna
-                  </Typography>
-                  {Object.entries(metadataValidation.unique_values_summary).map(([variable, values]) => (
-                    <Box key={variable} sx={{ mb: 2 }}>
-                      <Typography variant="body2" fontWeight="bold">{variable}:</Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                        {(values || []).slice(0, 10).map((value, index) => (
-                          <Chip key={index} label={value} size="small" variant="outlined" />
-                        ))}
-                        {(values || []).length > 10 && (
-                          <Chip label={`+${values.length - 10} más`} size="small" color="primary" />
-                        )}
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </Box>
-          )}
-          
-          {metadataValidation.statistics && (
-            <Alert severity={metadataValidation.is_valid ? 'success' : 'warning'} sx={{ mt: 2 }}>
-              <Typography>
-                Completitud promedio: {metadataValidation.statistics.average_completeness || 0}%
-              </Typography>
-            </Alert>
-          )}
-          
-          {/* Validation Parameters */}
-          {metadataValidation.validation_parameters && (
-            <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                Parámetros de Validación:
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                <strong>Variables de Metadata:</strong> {metadataValidation.validation_parameters.metadata_variables?.join(', ') || 'Ninguna'}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Total de Ítems:</strong> {metadataValidation.validation_parameters.total_items_analyzed || 0}
-              </Typography>
-            </Box>
-          )}
+          <CriticalVariablesAnalysis 
+            metadataValidation={metadataValidation}
+            instrumentsDetail={instrumentValidation.instruments_detail}
+          />
         </AccordionDetails>
       </Accordion>
 
@@ -584,15 +528,17 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
       </Paper>
 
       {/* Classification Values Modal */}
-      <ClassificationValuesModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        variable={selectedVariable}
-        instrument={selectedInstrument}
-        instrumentsDetail={instrumentValidation.instruments_detail}
-        sessionId={sessionId}
-        validationSessionId={validationSessionId}
-      />
+      {modalOpen && selectedInstrument && selectedVariable && (
+        <ClassificationValuesModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          variable={selectedVariable}
+          instrument={selectedInstrument}
+          instrumentsDetail={instrumentValidation.instruments_detail}
+          sessionId={sessionId}
+          validationSessionId={validationSessionId}
+        />
+      )}
     </Box>
   );
 };

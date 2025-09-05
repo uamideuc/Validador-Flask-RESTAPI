@@ -34,87 +34,148 @@ def smart_sort_values(values_list: List[str]) -> List[str]:
     result = [original_str for _, original_str in numeric_values] + string_values
     return result
 
+def _get_instruments_from_data(data: pd.DataFrame, categorization: VariableCategorization) -> Dict[str, pd.DataFrame]:
+    """
+    Agrupa los datos por instrumentos usando las variables de identificación de instrumentos
+    """
+    if not categorization.instrument_vars:
+        return {'default_instrument': data}
+    
+    instruments = {}
+    
+    for index, row in data.iterrows():
+        # Crear clave del instrumento
+        instrument_values = {}
+        for var in categorization.instrument_vars:
+            if var in data.columns:
+                instrument_values[var] = str(row[var])
+        
+        instrument_key = "|".join([f"{k}:{v}" for k, v in sorted(instrument_values.items())])
+        
+        if instrument_key not in instruments:
+            instruments[instrument_key] = []
+        
+        instruments[instrument_key].append(row.to_dict())
+    
+    # Convertir listas a DataFrames
+    for key, rows in instruments.items():
+        instruments[key] = pd.DataFrame(rows)
+    
+    return instruments
+
+
+def _analyze_variable_by_instrument(data: pd.DataFrame, variable: str) -> Dict[str, any]:
+    """
+    Analiza una variable crítica mostrando distribución de valores y faltantes
+    """
+    # Contar valores no nulos
+    non_null_data = data[variable].dropna()
+    value_counts = non_null_data.value_counts().to_dict()
+    
+    # Contar valores faltantes
+    missing_count = data[variable].isnull().sum()
+    total_observations = len(data)
+    
+    # Preparar distribución ordenada
+    unique_values = smart_sort_values([str(val) for val in value_counts.keys()])
+    
+    distribution = []
+    for value in unique_values:
+        count = value_counts.get(value, 0)
+        percentage = (count / total_observations) * 100 if total_observations > 0 else 0
+        distribution.append({
+            'value': str(value),
+            'count': int(count),
+            'percentage': round(percentage, 1)
+        })
+    
+    return {
+        'total_observations': total_observations,
+        'unique_values_count': len(unique_values),
+        'missing_count': int(missing_count),
+        'missing_percentage': round((missing_count / total_observations) * 100, 1) if total_observations > 0 else 0,
+        'distribution': distribution
+    }
+
+
 def validate_metadata_completeness(
     data: pd.DataFrame, 
     categorization: VariableCategorization
 ) -> MetadataValidationResult:
     """
-    Validación de completitud de metadata específica para instrumentos de ensamblaje
+    Validación de variables críticas por instrumento con enfoque en valores faltantes y distribución
     """
     result = MetadataValidationResult(is_valid=True)
     
-    # Add validation parameters info
     result.validation_parameters = {
         'metadata_variables': categorization.metadata_vars,
-        'validation_method': 'Análisis de completitud de variables de metadata',
+        'instrument_variables': categorization.instrument_vars,
+        'validation_method': 'Análisis por instrumento con distribución de valores',
         'total_items_analyzed': len(data)
     }
     
     try:
         if not categorization.metadata_vars:
             result.add_warning(
-                "No se han definido variables de metadata",
+                "No se han definido variables de información crítica",
                 "NO_METADATA_VARS"
             )
             return result
         
-        missing_values = {}
-        completeness_stats = {}
-        unique_values_summary = {}
+        # Agrupar datos por instrumentos
+        instruments = _get_instruments_from_data(data, categorization)
         
-        for var in categorization.metadata_vars:
-            if var not in data.columns:
-                result.add_error(
-                    f"Variable de metadata '{var}' no encontrada en los datos",
-                    "METADATA_VAR_NOT_FOUND",
-                    "error",
-                    variable=var
-                )
-                continue
-            
-            # Check for missing values
-            null_mask = data[var].isnull()
-            missing_indices = data[null_mask].index.tolist()
-            
-            if missing_indices:
-                missing_values[var] = missing_indices
-                result.add_error(
-                    f"Variable de metadata '{var}' tiene {len(missing_indices)} valores faltantes",
-                    "MISSING_METADATA_VALUES",
-                    "error",
-                    variable=var,
-                    missing_count=len(missing_indices)
-                )
-            
-            # Calculate completeness percentage
-            total_rows = len(data)
-            complete_rows = total_rows - len(missing_indices)
-            completeness_percentage = (complete_rows / total_rows) * 100 if total_rows > 0 else 0
-            completeness_stats[var] = completeness_percentage
-            
-            unique_values = set(data[var].dropna().astype(str).unique())
-            unique_values_summary[var] = smart_sort_values(list(unique_values))
+        # Estructura nueva: análisis por instrumento
+        instruments_analysis = {}
+        overall_missing = 0
+        overall_observations = 0
         
-        result.missing_values = missing_values
-        result.completeness_stats = completeness_stats
-        result.unique_values_summary = unique_values_summary
+        for instrument_key, instrument_data in instruments.items():
+            instrument_analysis = {
+                'total_observations': len(instrument_data),
+                'variables_analysis': {}
+            }
+            
+            for var in categorization.metadata_vars:
+                if var not in instrument_data.columns:
+                    result.add_error(
+                        f"Variable crítica '{var}' no encontrada en el instrumento {instrument_key}",
+                        "METADATA_VAR_NOT_FOUND",
+                        "error",
+                        variable=var,
+                        instrument=instrument_key
+                    )
+                    continue
+                
+                var_analysis = _analyze_variable_by_instrument(instrument_data, var)
+                instrument_analysis['variables_analysis'][var] = var_analysis
+                
+                # Acumular estadísticas generales
+                overall_missing += var_analysis['missing_count']
+                overall_observations += var_analysis['total_observations']
+            
+            instruments_analysis[instrument_key] = instrument_analysis
         
-        # Overall statistics
-        if missing_values:
-            total_missing = sum(len(indices) for indices in missing_values.values())
-            result.statistics['total_missing_values'] = total_missing
-            result.statistics['variables_with_missing'] = len(missing_values)
-        else:
-            result.statistics['message'] = 'Todas las variables de metadata están completas'
+        # Almacenar análisis en el resultado
+        result.statistics = {
+            'instruments_analysis': instruments_analysis,
+            'total_missing_values': overall_missing,
+            'total_observations_analyzed': overall_observations,
+            'missing_percentage_overall': round((overall_missing / overall_observations) * 100, 1) if overall_observations > 0 else 0
+        }
         
-        # Calculate overall completeness
-        if completeness_stats:
-            avg_completeness = sum(completeness_stats.values()) / len(completeness_stats)
-            result.statistics['average_completeness'] = round(avg_completeness, 2)
+        # Marcar como inválido si hay valores faltantes (información crítica no puede tener faltantes)
+        if overall_missing > 0:
+            result.is_valid = False
+        
+        # Mantener compatibilidad con estructura anterior (pero deprecated)
+        result.missing_values = {}
+        result.completeness_stats = {}
+        result.unique_values_summary = {}
         
     except Exception as e:
         result.add_error(
-            f"Error durante validación de metadata: {str(e)}",
+            f"Error durante validación de variables críticas: {str(e)}",
             "VALIDATION_ERROR",
             "error"
         )
