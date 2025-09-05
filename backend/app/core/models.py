@@ -172,10 +172,30 @@ class ValidationSummary:
             'categorization': self.categorization.to_dict()
         }
 
+@dataclass 
+class InstrumentValidationResult(ValidationResult):
+    """Results from instrument identification validation"""
+    instrument_summary: Dict[str, Any] = field(default_factory=dict)
+    instruments_detail: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            'is_valid': self.is_valid,
+            'errors': [{'message': e.message, 'code': e.error_code, 'severity': e.severity, 'context': e.context} for e in self.errors],
+            'warnings': [{'message': w.message, 'code': w.warning_code, 'context': w.context} for w in self.warnings],
+            'statistics': self.statistics,
+            'instrument_summary': self.instrument_summary,
+            'instruments_detail': self.instruments_detail,
+            'validation_parameters': self.validation_parameters
+        }
+
 @dataclass
 class ValidationReport:
     """Complete validation report"""
     summary: ValidationSummary
+    instrument_validation: InstrumentValidationResult
     duplicate_validation: DuplicateValidationResult
     metadata_validation: MetadataValidationResult
     classification_validation: ClassificationValidationResult
@@ -185,6 +205,7 @@ class ValidationReport:
         """Convert to dictionary for JSON serialization"""
         return {
             'summary': self.summary.to_dict(),
+            'instrument_validation': self.instrument_validation.to_dict(),
             'duplicate_validation': self.duplicate_validation.to_dict(),
             'metadata_validation': self.metadata_validation.to_dict(),
             'classification_validation': self.classification_validation.to_dict(),

@@ -7,8 +7,9 @@ from typing import Dict, Any
 from datetime import datetime
 from ...core.models import (
     VariableCategorization, ValidationReport, ValidationSummary,
-    DuplicateValidationResult, MetadataValidationResult, ClassificationValidationResult
+    InstrumentValidationResult, DuplicateValidationResult, MetadataValidationResult, ClassificationValidationResult
 )
+from .checks.check_instruments import validate_instruments_identification
 from ..common_checks.check_duplicates import validate_duplicates
 from .checks.check_metadata import validate_metadata_completeness
 from .checks.check_classification import analyze_classification_variables
@@ -32,19 +33,22 @@ class EnsamblajeValidator:
         Generar reporte completo orquestando checks específicos
         """
         try:
-            # Ejecutar checks específicos (orquestación delgada)
+            # Ejecutar checks específicos (orquestación delgada) - 4 validaciones
+            instrument_validation = validate_instruments_identification(data, categorization)
             duplicate_validation = validate_duplicates(data, categorization)
             metadata_validation = validate_metadata_completeness(data, categorization)
             classification_validation = analyze_classification_variables(data, categorization)
             
             # Determinar estado general de validación
             has_errors = (
+                not instrument_validation.is_valid or
                 not duplicate_validation.is_valid or
                 not metadata_validation.is_valid or
                 not classification_validation.is_valid
             )
             
             has_warnings = (
+                len(instrument_validation.warnings) > 0 or
                 len(duplicate_validation.warnings) > 0 or
                 len(metadata_validation.warnings) > 0 or
                 len(classification_validation.warnings) > 0
@@ -70,6 +74,7 @@ class EnsamblajeValidator:
             # Crear reporte completo
             report = ValidationReport(
                 summary=summary,
+                instrument_validation=instrument_validation,
                 duplicate_validation=duplicate_validation,
                 metadata_validation=metadata_validation,
                 classification_validation=classification_validation,
@@ -108,6 +113,7 @@ class EnsamblajeValidator:
             
             return ValidationReport(
                 summary=summary,
+                instrument_validation=InstrumentValidationResult(is_valid=False),
                 duplicate_validation=error_validation,
                 metadata_validation=MetadataValidationResult(is_valid=False),
                 classification_validation=ClassificationValidationResult(is_valid=False)

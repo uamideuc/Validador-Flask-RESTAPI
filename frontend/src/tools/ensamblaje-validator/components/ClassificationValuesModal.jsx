@@ -21,10 +21,25 @@ import {
 import ApiService from '../../../core/api';
 
 // Helper para mostrar nombres de instrumentos amigables al usuario
-const getInstrumentDisplayName = (instrumentKey) => {
+const getInstrumentDisplayName = (instrumentKey, instrumentsDetail = {}) => {
   if (instrumentKey === 'default_instrument') {
     return 'Toda la base de datos';
   }
+  
+  // Intentar usar el display_name del backend si existe
+  const instrumentDetail = instrumentsDetail[instrumentKey];
+  if (instrumentDetail && instrumentDetail.display_name) {
+    return instrumentDetail.display_name;
+  }
+  
+  // Fallback: formatear la clave técnica de forma más legible
+  if (instrumentKey.includes('|')) {
+    return instrumentKey
+      .split('|')
+      .map(part => part.split(':')[1]) // Extraer solo valores
+      .join(' - '); // Unir con guiones
+  }
+  
   return instrumentKey;
 };
 
@@ -33,6 +48,7 @@ const ClassificationValuesModal = ({
   onClose, 
   variable, 
   instrument, 
+  instrumentsDetail = {},
   sessionId, 
   validationSessionId 
 }) => {
@@ -90,7 +106,7 @@ const ClassificationValuesModal = ({
           Valores de la Variable: {variable}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Instrumento: {getInstrumentDisplayName(instrument)}
+          Instrumento: {getInstrumentDisplayName(instrument, instrumentsDetail)}
         </Typography>
       </DialogTitle>
       

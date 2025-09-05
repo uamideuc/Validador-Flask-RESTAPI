@@ -3,10 +3,25 @@ import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDe
 import ClassificationValuesModal from './ClassificationValuesModal';
 
 // Helper para mostrar nombres de instrumentos amigables al usuario
-const getInstrumentDisplayName = (instrumentKey) => {
+const getInstrumentDisplayName = (instrumentKey, instrumentsDetail = {}) => {
   if (instrumentKey === 'default_instrument') {
     return 'Toda la base de datos';
   }
+  
+  // Intentar usar el display_name del backend si existe
+  const instrumentDetail = instrumentsDetail[instrumentKey];
+  if (instrumentDetail && instrumentDetail.display_name) {
+    return instrumentDetail.display_name;
+  }
+  
+  // Fallback: formatear la clave técnica de forma más legible
+  if (instrumentKey.includes('|')) {
+    return instrumentKey
+      .split('|')
+      .map(part => part.split(':')[1]) // Extraer solo valores
+      .join(' - '); // Unir con guiones
+  }
+  
   return instrumentKey;
 };
 
@@ -30,6 +45,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
   }
 
   const summary = validationData.summary || {};
+  const instrumentValidation = validationData.instrument_validation || {};
   const duplicateValidation = validationData.duplicate_validation || {};
   const metadataValidation = validationData.metadata_validation || {};
   const classificationValidation = validationData.classification_validation || {};
@@ -109,6 +125,85 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         </AccordionDetails>
       </Accordion>
 
+      {/* Instrument Validation */}
+      <Accordion 
+        expanded={expandedSections.includes('instruments')}
+        onChange={() => handleSectionToggle('instruments')}
+        sx={{ mb: 2 }}
+      >
+        <AccordionSummary>
+          <Typography variant="h6">🎯 Validación - Identificador de instrumentos</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          {instrumentValidation.instrument_summary && (
+            <Box>
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h4" color="primary" gutterBottom>
+                        {instrumentValidation.instrument_summary.total_instruments || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Total de Instrumentos
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h4" color="primary" gutterBottom>
+                        {instrumentValidation.instrument_summary.total_observations || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Total de Observaciones
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              {instrumentValidation.instruments_detail && (
+                <Box>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    Instrumentos Identificados
+                  </Typography>
+                  {Object.entries(instrumentValidation.instruments_detail).map(([key, instrument]) => (
+                    <Card key={key} variant="outlined" sx={{ mb: 2 }}>
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography variant="h6" color="primary">
+                            {instrument.display_name}
+                          </Typography>
+                          <Chip 
+                            label={`${instrument.observations_count} observaciones`}
+                            color="primary" 
+                            variant="outlined" 
+                          />
+                        </Box>
+                        {instrument.instrument_variables && Object.keys(instrument.instrument_variables).length > 0 && (
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Variables de identificación:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {Object.entries(instrument.instrument_variables).map(([varName, value]) => (
+                                <Chip key={varName} label={`${varName}: ${value}`} size="small" variant="outlined" />
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          )}
+        </AccordionDetails>
+      </Accordion>
+
       {/* Duplicate Validation */}
       <Accordion 
         expanded={expandedSections.includes('duplicates')}
@@ -116,7 +211,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         sx={{ mb: 2 }}
       >
         <AccordionSummary>
-          <Typography variant="h6">🔍 Validación de Repetidos</Typography>
+          <Typography variant="h6">🔍 Validación - Identificador de ítems</Typography>
           <Chip 
             label={getStatusText(duplicateValidation.is_valid)} 
             color={getStatusColor(duplicateValidation.is_valid)}
@@ -215,7 +310,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         sx={{ mb: 2 }}
       >
         <AccordionSummary>
-          <Typography variant="h6">📋 Validación de Información Crítica</Typography>
+          <Typography variant="h6">📋 Validación - Información crítica</Typography>
           <Chip 
             label={getStatusText(metadataValidation.is_valid)} 
             color={getStatusColor(metadataValidation.is_valid)}
@@ -305,7 +400,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         sx={{ mb: 2 }}
       >
         <AccordionSummary>
-          <Typography variant="h6">🏷️ Análisis de Información Complementaria</Typography>
+          <Typography variant="h6">🏷️ Validación - Información Complementaria</Typography>
           <Chip 
             label={classificationValidation.warnings && classificationValidation.warnings.length > 0 ? 'ADVERTENCIAS' : 'OK'} 
             color={classificationValidation.warnings && classificationValidation.warnings.length > 0 ? 'warning' : 'success'}
@@ -321,8 +416,15 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               </Typography>
               {Object.entries(classificationValidation.unique_counts_per_instrument).map(([instrument, variables]) => (
                 <Box key={instrument} sx={{ mb: 3 }}>
-                  <Typography variant="body1" fontWeight="bold" gutterBottom>
-                    {getInstrumentDisplayName(instrument)}
+                  <Typography variant="h6" sx={{ 
+                    fontWeight: 'bold', 
+                    color: 'primary.main', 
+                    mb: 2,
+                    pb: 1,
+                    borderBottom: '2px solid',
+                    borderColor: 'primary.light'
+                  }}>
+                    {getInstrumentDisplayName(instrument, instrumentValidation.instruments_detail)}
                   </Typography>
                   <Grid container spacing={2}>
                     {Object.entries(variables || {}).map(([variable, count]) => (
@@ -331,11 +433,13 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
                           variant="outlined" 
                           sx={{ 
                             cursor: 'pointer',
+                            height: '100%',
+                            transition: 'all 0.2s ease-in-out',
                             '&:hover': { 
-                              backgroundColor: '#f5f5f5',
-                              boxShadow: 2
-                            },
-                            transition: 'all 0.2s ease-in-out'
+                              backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)',
+                              transform: 'translateY(-2px)'
+                            }
                           }}
                           onClick={() => {
                             setSelectedVariable(variable);
@@ -343,16 +447,26 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
                             setModalOpen(true);
                           }}
                         >
-                          <CardContent sx={{ p: 2 }}>
-                            <Typography variant="h6" color="primary" gutterBottom>
+                          <CardContent sx={{ p: 2.5, textAlign: 'center' }}>
+                            <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 'bold' }}>
                               {count}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <Typography variant="body1" gutterBottom sx={{ 
+                              fontWeight: 500,
+                              minHeight: '48px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
                               {variable}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              valores únicos • clic para detalles
-                            </Typography>
+                            <Chip 
+                              label="Ver detalles" 
+                              size="small" 
+                              variant="outlined" 
+                              color="primary"
+                              sx={{ mt: 1 }}
+                            />
                           </CardContent>
                         </Card>
                       </Grid>
@@ -475,6 +589,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         onClose={() => setModalOpen(false)}
         variable={selectedVariable}
         instrument={selectedInstrument}
+        instrumentsDetail={instrumentValidation.instruments_detail}
         sessionId={sessionId}
         validationSessionId={validationSessionId}
       />
