@@ -386,38 +386,58 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
         </Box>
 
         {/* Navigation Buttons */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Button
-              variant="outlined"
-              onClick={handleBack}
-              disabled={activeStep === 0 || isLoading}
-              startIcon={<span>←</span>}
-            >
-              Paso Anterior
-            </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', mt: 3, position: 'relative' }}>
+          {/* Botón izquierdo - posición absoluta */}
+          <Box sx={{ position: 'absolute', left: 0 }}>
+            {activeStep > 0 && (
+              <Button
+                variant="outlined"
+                onClick={handleBack}
+                disabled={isLoading}
+                startIcon={<span>←</span>}
+              >
+                Paso Anterior
+              </Button>
+            )}
           </Box>
           
-          <Typography variant="body2" color="text.secondary">
-            Paso {activeStep + 1} de {steps.length}
-          </Typography>
-          
-          {activeStep < steps.length - 1 && (
-            <Button
-              variant="outlined"
-              onClick={handleNext}
-              disabled={isLoading || 
-                       (activeStep === 0 && !parseData) || 
-                       (activeStep === 1 && !hasCompletedValidation)}
-              endIcon={<span>→</span>}
+          {/* Indicador de paso - siempre centrado */}
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{ 
+                fontWeight: 500,
+                py: 1,
+                px: 2,
+                borderRadius: 1,
+                backgroundColor: 'action.hover'
+              }}
             >
-              Siguiente Paso
-            </Button>
-          )}
+              Paso {activeStep + 1} de {steps.length}
+            </Typography>
+          </Box>
           
-          {activeStep === steps.length - 1 && (
-            <div /> // Spacer
-          )}
+          {/* Botón derecho - posición absoluta */}
+          <Box sx={{ position: 'absolute', right: 0 }}>
+            {activeStep < steps.length - 1 && (
+              <Button
+                variant="outlined"
+                onClick={handleNext}
+                disabled={isLoading || 
+                         (activeStep === 0 && !parseData) || 
+                         (activeStep === 1 && !hasCompletedValidation)}
+                endIcon={<span>→</span>}
+              >
+                Siguiente Paso
+              </Button>
+            )}
+          </Box>
         </Box>
 
 {/* Botón de "Procesar Nuevo Archivo" removido - ahora usamos "Reiniciar Proceso" */}
