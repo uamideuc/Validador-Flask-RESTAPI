@@ -1,5 +1,5 @@
-import React from 'react';
-import { Container, Typography, Box, CircularProgress, AppBar, Toolbar, IconButton, Tooltip } from '@mui/material';
+import React, { useState } from 'react';
+import { Container, Typography, Box, CircularProgress, AppBar, Toolbar, IconButton, Tooltip, Button } from '@mui/material';
 import { Logout } from '@mui/icons-material';
 import { AuthProvider, useAuth } from './core/auth';
 import { ToolsProvider, useTools } from './core/ToolStateContext';
@@ -7,14 +7,25 @@ import Login from './pages/Login';
 import Menu from './pages/Menu';
 import ToolPage from './pages/Tool';
 import ToolTabs from './components/navigation/ToolTabs';
+import LogoutConfirmation from './components/LogoutConfirmation';
 
 // Componente principal de la aplicación autenticada
 function AppContent() {
   const { logout } = useAuth();
   const { state, dispatch, getToolStatus } = useTools();
+  const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogoutClick = () => {
+    setShowLogoutConfirmation(true);
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutConfirmation(false);
     logout();
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirmation(false);
   };
 
   const handleToolSelect = (toolId: string) => {
@@ -59,15 +70,17 @@ function AppContent() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Validador de Bases de Datos - Sesión Activa
           </Typography>
-          <Tooltip title="Cerrar Sesión" arrow>
-            <IconButton
-              color="inherit"
-              onClick={handleLogout}
-              aria-label="Cerrar Sesión"
-            >
-              <Logout />
-            </IconButton>
-          </Tooltip>
+          <Button
+            color="inherit"
+            onClick={handleLogoutClick}
+            endIcon={<Logout />}
+            sx={{ 
+              textTransform: 'none', // Mantiene el texto normal, no MAYÚSCULAS
+              fontWeight: 400 // Peso de fuente normal
+            }}
+          >
+            Cerrar sesión
+          </Button>
         </Toolbar>
       </AppBar>
 
@@ -81,6 +94,13 @@ function AppContent() {
 
       {/* Main Content */}
       {renderMainContent()}
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmation
+        open={showLogoutConfirmation}
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
     </>
   );
 }
