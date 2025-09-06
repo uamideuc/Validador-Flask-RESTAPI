@@ -74,6 +74,14 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   };
 
   const handleFileUploaded = (data: any) => {
+    // Si hay trabajo previo, guardar información del archivo anterior ANTES de actualizar
+    if (hasExistingWork()) {
+      setPreviousFileInfo({
+        uploadId: uploadId,
+        filename: uploadedFilename
+      });
+    }
+    
     setEnsamblajeState({ 
       uploadId: data.upload_id,
       uploadedFilename: data.filename,
@@ -84,6 +92,8 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   // Estado local para modal de confirmación
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [pendingFileData, setPendingFileData] = useState<any>(null);
+  // Guardar información del archivo anterior para poder revertir
+  const [previousFileInfo, setPreviousFileInfo] = useState<{uploadId: number | null, filename: string | null}>({uploadId: null, filename: null});
 
   // Función helper para detectar si hay trabajo previo
   const hasExistingWork = (): boolean => {
@@ -139,12 +149,20 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     // Limpiar estados locales del modal
     setShowResetConfirmation(false);
     setPendingFileData(null);
+    setPreviousFileInfo({uploadId: null, filename: null});
   };
 
   const handleResetCancel = () => {
-    // Cancelar - no hacer nada, mantener estado actual
+    // Restaurar información del archivo anterior
+    setEnsamblajeState({
+      uploadId: previousFileInfo.uploadId,
+      uploadedFilename: previousFileInfo.filename
+    });
+    
+    // Limpiar estados del modal
     setShowResetConfirmation(false);
     setPendingFileData(null);
+    setPreviousFileInfo({uploadId: null, filename: null});
   };
 
   const handleCategorizationComplete = async (categorizationData: any) => {
