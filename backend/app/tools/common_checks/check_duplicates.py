@@ -10,78 +10,122 @@ from ...core.models import VariableCategorization, DuplicateValidationResult, Du
 SINGLE_INSTRUMENT_KEY = "default_instrument"
 SINGLE_INSTRUMENT_DISPLAY = "Toda la base de datos"
 
+def _analyze_id_variable_by_instrument(data: pd.DataFrame, variable: str) -> Dict[str, any]:
+    """
+    Analiza una variable ID mostrando únicos, repetidos y faltantes
+    """
+    # Contar valores no nulos
+    non_null_data = data[variable].dropna()
+    value_counts = non_null_data.value_counts()
+    
+    # Contar valores faltantes
+    missing_count = data[variable].isnull().sum()
+    total_observations = len(data)
+    
+    # Identificar únicos y repetidos
+    unique_values = (value_counts == 1).sum()  # Valores que aparecen solo 1 vez
+    duplicated_values = (value_counts > 1).sum()  # Valores que aparecen más de 1 vez
+    total_duplicated_items = (value_counts[value_counts > 1]).sum()  # Total de ítems repetidos
+    
+    # Detalles de valores repetidos para el modal
+    repeated_details = []
+    for value, count in value_counts[value_counts > 1].items():
+        repeated_details.append({
+            'value': str(value),
+            'count': int(count),
+            'times_repeated': int(count - 1)  # Veces que se repite (sin contar la original)
+        })
+    
+    return {
+        'total_observations': total_observations,
+        'unique_values_count': int(unique_values),
+        'duplicated_values_count': int(duplicated_values),
+        'total_duplicated_items': int(total_duplicated_items),
+        'missing_count': int(missing_count),
+        'missing_percentage': round((missing_count / total_observations) * 100, 1) if total_observations > 0 else 0,
+        'repeated_details': repeated_details
+    }
+
+
 def validate_duplicates(
     data: pd.DataFrame, 
     categorization: VariableCategorization
 ) -> DuplicateValidationResult:
     """
-    Validación de duplicados reutilizable entre herramientas
+    Validación de identificadores de ítems con UX top-notch:
+    Análisis por instrumento con únicos, repetidos y faltantes
     """
     result = DuplicateValidationResult(is_valid=True)
     
-    # Add validation parameters info
-    instruments = _get_instruments(data, categorization)
     result.validation_parameters = {
         'item_id_variables': categorization.item_id_vars,
-        'instrument_variables': categorization.instrument_vars if categorization.instrument_vars else [SINGLE_INSTRUMENT_DISPLAY],
-        'validation_method': 'Búsqueda de IDs duplicados dentro de cada instrumento',
-        'total_instruments_analyzed': len(instruments)
+        'instrument_variables': categorization.instrument_vars,
+        'validation_method': 'Análisis por instrumento con identificadores únicos, repetidos y faltantes',
+        'total_items_analyzed': len(data)
     }
     
     try:
         if not categorization.item_id_vars:
-            result.add_error(
+            result.add_warning(
                 "No se han definido variables de identificador de ítem",
-                "NO_ITEM_ID_VARS",
-                "error"
+                "NO_ITEM_ID_VARS"
             )
             return result
         
-        result.instruments_analyzed = len(instruments)
+        # Agrupar datos por instrumentos
+        instruments = _get_instruments(data, categorization)
         
-        total_items = 0
-        all_duplicates = []
+        # Estructura nueva: análisis por instrumento
+        instruments_analysis = {}
+        overall_duplicates = 0
+        overall_missing = 0
         
         for instrument_key, instrument_data in instruments.items():
-            total_items += len(instrument_data)
+            instrument_analysis = {
+                'total_observations': len(instrument_data),
+                'variables_analysis': {}
+            }
             
-            # Parse instrument key to get combination
-            instrument_combination = {}
-            if instrument_key != SINGLE_INSTRUMENT_KEY:
-                for pair in instrument_key.split('|'):
-                    key, value = pair.split(':', 1)
-                    instrument_combination[key] = value
+            for var in categorization.item_id_vars:
+                if var not in instrument_data.columns:
+                    result.add_error(
+                        f"Variable de ID '{var}' no encontrada en el instrumento {instrument_key}",
+                        "ID_VAR_NOT_FOUND",
+                        "error",
+                        variable=var,
+                        instrument=instrument_key
+                    )
+                    continue
+                
+                var_analysis = _analyze_id_variable_by_instrument(instrument_data, var)
+                instrument_analysis['variables_analysis'][var] = var_analysis
+                
+                # Acumular estadísticas generales
+                overall_duplicates += var_analysis['total_duplicated_items']
+                overall_missing += var_analysis['missing_count']
             
-            # Check for duplicates within this instrument
-            duplicates = _find_duplicates_in_instrument(
-                instrument_data, 
-                instrument_combination,
-                categorization
-            )
-            all_duplicates.extend(duplicates)
+            instruments_analysis[instrument_key] = instrument_analysis
         
-        result.total_items_checked = total_items
-        result.duplicate_items = all_duplicates
+        # Almacenar análisis en el resultado
+        result.statistics = {
+            'instruments_analysis': instruments_analysis,
+            'total_duplicated_items': overall_duplicates,
+            'total_missing_values': overall_missing,
+            'total_observations_analyzed': len(data)
+        }
         
-        if all_duplicates:
-            result.add_error(
-                f"Se encontraron {len(all_duplicates)} ítems duplicados",
-                "DUPLICATE_ITEMS_FOUND",
-                "error"
-            )
-            
-            # Add statistics
-            affected_instruments = len(set(dup.instrument_combination.get('instrument_key', 'default') 
-                                         for dup in all_duplicates))
-            result.statistics['affected_instruments'] = affected_instruments
-            result.statistics['total_duplicates'] = len(all_duplicates)
-        else:
-            result.statistics['message'] = 'No se encontraron ítems duplicados'
+        # Marcar como inválido si hay duplicados o faltantes
+        if overall_duplicates > 0 or overall_missing > 0:
+            result.is_valid = False
         
+        # Mantener compatibilidad con estructura anterior (pero deprecated)
+        result.duplicate_items = []
+        result.instruments_analyzed = len(instruments)
+        result.total_items_checked = len(data)
         
     except Exception as e:
         result.add_error(
-            f"Error durante validación de duplicados: {str(e)}",
+            f"Error durante validación de identificadores de ítems: {str(e)}",
             "VALIDATION_ERROR",
             "error"
         )

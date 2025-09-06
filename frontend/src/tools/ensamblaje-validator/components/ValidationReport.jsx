@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, Card, CardContent } from '@mui/material';
 import ClassificationValuesModal from './ClassificationValuesModal';
 import CriticalVariablesAnalysis from './CriticalVariablesAnalysis';
+import IdVariablesAnalysis from './IdVariablesAnalysis';
 
 // Helper para mostrar nombres de instrumentos amigables al usuario
 const getInstrumentDisplayName = (instrumentKey, instrumentsDetail = {}) => {
@@ -63,9 +64,22 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
       case 'metadata':
         return 'VALORES FALTANTES';
       case 'duplicates':
-        return 'REPETIDOS ENCONTRADOS';
+        return 'IDS PROBLEMÁTICOS';
       default:
         return 'ERRORES ENCONTRADOS';
+    }
+  };
+
+  const getGeneralStatusText = (validationStatus) => {
+    switch(validationStatus) {
+      case 'success':
+        return 'Sin problemas detectados';
+      case 'warning':
+        return 'Observaciones detectadas';
+      case 'error':
+        return 'Problemas detectados';
+      default:
+        return 'Revisión en progreso';
     }
   };
 
@@ -101,7 +115,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
                     {summary.total_items || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Total de Ítems
+                    {summary.total_items === 1 ? 'Ítem en total' : 'Ítems en total'}
                   </Typography>
                 </CardContent>
               </Card>
@@ -113,7 +127,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
                     {summary.total_instruments || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Instrumentos Analizados
+                    {summary.total_instruments === 1 ? 'Instrumento analizado' : 'Instrumentos analizados'}
                   </Typography>
                 </CardContent>
               </Card>
@@ -122,7 +136,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               <Card>
                 <CardContent>
                   <Chip 
-                    label={summary.validation_status || 'desconocido'} 
+                    label={getGeneralStatusText(summary.validation_status)} 
                     color={summary.validation_status === 'success' ? 'success' : summary.validation_status === 'warning' ? 'warning' : 'error'}
                     size="large"
                   />
@@ -231,86 +245,10 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
           />
         </AccordionSummary>
         <AccordionDetails>
-          {duplicateValidation.duplicate_items && duplicateValidation.duplicate_items.length > 0 ? (
-            <Box>
-              <Alert severity="error" sx={{ mb: 2 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Se encontraron {duplicateValidation.duplicate_items.length} ítems repetidos
-                </Typography>
-              </Alert>
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>ID del Ítem</TableCell>
-                      <TableCell>Instrumento</TableCell>
-                      <TableCell>Filas Afectadas</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {duplicateValidation.duplicate_items.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{item.item_id}</TableCell>
-                        <TableCell>
-                          {Object.entries(item.instrument_combination || {}).map(([key, value]) => (
-                            <Chip key={key} label={`${key}: ${value}`} size="small" sx={{ mr: 0.5 }} />
-                          ))}
-                        </TableCell>
-                        <TableCell>{(item.row_indices || []).join(', ')}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          ) : (
-            <Alert severity="success">
-              <Typography>✓ No se encontraron ítems repetidos</Typography>
-            </Alert>
-          )}
-          
-          {/* Missing Values in Identifiers */}
-          {duplicateValidation.missing_values_in_identifiers && (
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: '#f57c00' }}>
-                🚨 Valores Faltantes en Identificadores
-              </Typography>
-              {duplicateValidation.missing_values_in_identifiers.has_missing_values ? (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Se encontraron valores faltantes en columnas de identificación:
-                  </Typography>
-                  {duplicateValidation.missing_values_in_identifiers.details.map((detail) => (
-                    <Typography key={detail.column} variant="body2" sx={{ ml: 2 }}>
-                      • <strong>{detail.column}:</strong> {detail.missing_count} valores faltantes ({detail.percentage}%)
-                    </Typography>
-                  ))}
-                </Alert>
-              ) : (
-                <Alert severity="success">
-                  <Typography>✓ No se encontraron valores faltantes en columnas de identificación</Typography>
-                </Alert>
-              )}
-            </Box>
-          )}
-
-          {/* Validation Parameters */}
-          {duplicateValidation.validation_parameters && (
-            <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                Parámetros de Validación:
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                <strong>Variables de ID:</strong> {duplicateValidation.validation_parameters.item_id_variables?.join(', ') || 'Ninguna'}
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                <strong>Variables de Instrumento:</strong> {duplicateValidation.validation_parameters.instrument_variables?.join(', ') || 'Ninguna'}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Instrumentos Analizados:</strong> {duplicateValidation.validation_parameters.total_instruments_analyzed || 0}
-              </Typography>
-            </Box>
-          )}
+          <IdVariablesAnalysis 
+            duplicateValidation={duplicateValidation}
+            instrumentsDetail={instrumentValidation.instruments_detail}
+          />
         </AccordionDetails>
       </Accordion>
 
