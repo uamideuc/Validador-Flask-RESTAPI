@@ -54,10 +54,10 @@ def _create_instrument_display_name(instrument_values: Dict[str, str], hierarchy
         value = str(instrument_values[var_name])
         
         # Detectar variables temporales (van al final entre paréntesis)
-        if any(keyword in var_name.lower() for keyword in ['año', 'year', 'fecha', 'date', 'periodo']):
+        if any(keyword in var_name.lower() for keyword in ['año', 'year', 'fecha', 'date', 'periodo', 'tanda']):
             temporal_parts.append(value)
         # Detectar formas/versiones 
-        elif any(keyword in var_name.lower() for keyword in ['forma', 'form', 'version', 'tipo']):
+        elif any(keyword in var_name.lower() for keyword in ['forma', 'form', 'cuadernillo', 'tipo']):
             parts.append(f"Forma {value}")
         else:
             parts.append(value)
