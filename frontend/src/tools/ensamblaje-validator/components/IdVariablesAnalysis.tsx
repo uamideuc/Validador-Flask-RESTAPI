@@ -210,191 +210,194 @@ const IdVariablesAnalysis: React.FC<Props> = ({ duplicateValidation, instruments
         const displayName = getInstrumentDisplayName(instrumentKey, instrumentsDetail);
 
         return (
-          <Card key={instrumentKey} variant="outlined" sx={{ mb: 2 }}>
-            <CardContent sx={{ pb: isExpanded ? 2 : 1 }}>
-              {/* Header del instrumento */}
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between',
-                  cursor: expandedView ? 'default' : 'pointer',
-                  pb: isExpanded ? 2 : 0
-                }}
-                onClick={!expandedView ? () => toggleInstrument(instrumentKey) : undefined}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {!expandedView && (
-                    <ExpandMoreIcon 
-                      sx={{ 
-                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.2s ease-in-out'
-                      }}
+          <Box key={instrumentKey}>
+            <Card variant="outlined" sx={{ mb: 2 }}>
+              <CardContent sx={{ pb: isExpanded ? 2 : 1 }}>
+                {/* Header del instrumento */}
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    cursor: expandedView ? 'default' : 'pointer',
+                    pb: isExpanded ? 2 : 0
+                  }}
+                  onClick={!expandedView ? () => toggleInstrument(instrumentKey) : undefined}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {!expandedView && (
+                      <ExpandMoreIcon 
+                        sx={{ 
+                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s ease-in-out'
+                        }}
+                      />
+                    )}
+                    <Typography variant="h6" sx={{ 
+                      fontWeight: 'bold', 
+                      color: 'primary.main'
+                    }}>
+                      🔍 {displayName}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {(() => {
+                      // Calcular totales para este instrumento
+                      const totalDuplicated = Object.values(analysis.variables_analysis || {})
+                        .reduce((sum, varData) => sum + (varData.total_duplicated_items || 0), 0);
+                      const totalMissing = Object.values(analysis.variables_analysis || {})
+                        .reduce((sum, varData) => sum + (varData.missing_count || 0), 0);
+                      
+                      return (
+                        <>
+                          {totalDuplicated > 0 && (
+                            <Typography variant="body2" color="error.main" sx={{ 
+                              fontSize: '0.875rem',
+                              fontWeight: 500 
+                            }}>
+                              {totalDuplicated} {totalDuplicated === 1 ? 'repetido' : 'repetidos'} •
+                            </Typography>
+                          )}
+                          {totalMissing > 0 && (
+                            <Typography variant="body2" color="warning.main" sx={{ 
+                              fontSize: '0.875rem',
+                              fontWeight: 500 
+                            }}>
+                              {totalMissing} {totalMissing === 1 ? 'faltante' : 'faltantes'} •
+                            </Typography>
+                          )}
+                        </>
+                      );
+                    })()}
+                    <Chip 
+                      label={`${analysis.total_observations} ${analysis.total_observations === 1 ? 'observación' : 'observaciones'}`}
+                      variant="outlined"
+                      size="small"
                     />
-                  )}
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 'bold', 
-                    color: 'primary.main'
-                  }}>
-                    🔍 {displayName}
-                  </Typography>
+                  </Box>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {(() => {
-                    // Calcular totales para este instrumento
-                    const totalDuplicated = Object.values(analysis.variables_analysis || {})
-                      .reduce((sum, varData) => sum + (varData.total_duplicated_items || 0), 0);
-                    const totalMissing = Object.values(analysis.variables_analysis || {})
-                      .reduce((sum, varData) => sum + (varData.missing_count || 0), 0);
-                    
-                    return (
-                      <>
-                        {totalDuplicated > 0 && (
-                          <Typography variant="body2" color="error.main" sx={{ 
-                            fontSize: '0.875rem',
-                            fontWeight: 500 
-                          }}>
-                            {totalDuplicated} {totalDuplicated === 1 ? 'repetido' : 'repetidos'} •
-                          </Typography>
-                        )}
-                        {totalMissing > 0 && (
-                          <Typography variant="body2" color="warning.main" sx={{ 
-                            fontSize: '0.875rem',
-                            fontWeight: 500 
-                          }}>
-                            {totalMissing} {totalMissing === 1 ? 'faltante' : 'faltantes'} •
-                          </Typography>
-                        )}
-                      </>
-                    );
-                  })()}
-                  <Chip 
-                    label={`${analysis.total_observations} ${analysis.total_observations === 1 ? 'observación' : 'observaciones'}`}
-                    variant="outlined"
-                    size="small"
-                  />
-                </Box>
-              </Box>
 
-              {/* Análisis de variables */}
-              <Collapse in={isExpanded} timeout={300}>
-                <Box sx={{ mt: 2 }}>
-                  {Object.entries(analysis.variables_analysis || {}).map(([variable, varData]) => (
-                    <Box key={variable} sx={{ mb: 2, p: 2, backgroundColor: 'rgba(0,0,0,0.02)', borderRadius: 2 }}>
-                      {/* Header de variable con status */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {getVariableStatusIcon(varData)}
-                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-                            {variable}
-                          </Typography>
+                {/* Análisis de variables */}
+                <Collapse in={isExpanded} timeout={300}>
+                  <Box sx={{ mt: 2 }}>
+                    {Object.entries(analysis.variables_analysis || {}).map(([variable, varData]) => (
+                      <Box key={variable} sx={{ mb: 2, p: 2, backgroundColor: 'rgba(0,0,0,0.02)', borderRadius: 2 }}>
+                        {/* Header de variable con status */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {getVariableStatusIcon(varData)}
+                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+                              {variable}
+                            </Typography>
+                          </Box>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setSelectedVariable({variable, instrument: instrumentKey, data: varData})}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Ver detalles
+                          </Button>
                         </Box>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => setSelectedVariable({variable, instrument: instrumentKey, data: varData})}
-                          sx={{ textTransform: 'none' }}
-                        >
-                          Ver detalles
-                        </Button>
-                      </Box>
 
-                      {/* Status resumido */}
-                      <Typography variant="body2" color="text.secondary">
-                        {formatVariableStatus(varData)}
+                        {/* Status resumido */}
+                        <Typography variant="body2" color="text.secondary">
+                          {formatVariableStatus(varData)}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Collapse>
+              </CardContent>
+            </Card>
+
+            {/* Modal de detalles - ahora aparece justo debajo del card correspondiente */}
+            {selectedVariable && selectedVariable.instrument === instrumentKey && (
+              <Card sx={{ mb: 3, border: '2px solid', borderColor: 'primary.light' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">
+                      Detalles: {selectedVariable.variable}
+                    </Typography>
+                    <Button onClick={() => setSelectedVariable(null)} variant="outlined" size="small">
+                      Cerrar
+                    </Button>
+                  </Box>
+                  
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Instrumento: {getInstrumentDisplayName(selectedVariable.instrument, instrumentsDetail)}
+                  </Typography>
+
+                  {/* Estadísticas */}
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={6} md={3}>
+                      <Paper sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="h4" color="primary">{selectedVariable.data.unique_values_count}</Typography>
+                        <Typography variant="body2">Valores únicos</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={6} md={3}>
+                      <Paper sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="h4" color="error">{selectedVariable.data.total_duplicated_items}</Typography>
+                        <Typography variant="body2">Ítems repetidos</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={6} md={3}>
+                      <Paper sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="h4" color="warning">{selectedVariable.data.missing_count}</Typography>
+                        <Typography variant="body2">{selectedVariable.data.missing_count === 1 ? 'Valor faltante' : 'Valores faltantes'}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={6} md={3}>
+                      <Paper sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="h4">{selectedVariable.data.total_observations}</Typography>
+                        <Typography variant="body2">Total observaciones</Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+
+                  {/* Tabla de valores repetidos */}
+                  {selectedVariable.data.repeated_details && selectedVariable.data.repeated_details.length > 0 && (
+                    <Box>
+                      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        Valores que se repiten
                       </Typography>
+                      <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
+                        <Table stickyHeader size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Valor</TableCell>
+                              <TableCell align="center">Apariciones</TableCell>
+                              <TableCell align="center">Repeticiones</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {selectedVariable.data.repeated_details.map((detail, index) => (
+                              <TableRow key={index}>
+                                <TableCell>{detail.value}</TableCell>
+                                <TableCell align="center">{detail.count}</TableCell>
+                                <TableCell align="center">
+                                  <Chip 
+                                    label={`+${detail.times_repeated}`} 
+                                    color="error" 
+                                    size="small" 
+                                    variant="outlined" 
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
                     </Box>
-                  ))}
-                </Box>
-              </Collapse>
-            </CardContent>
-          </Card>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </Box>
         );
       })}
 
-      {/* Modal de detalles */}
-      {selectedVariable && (
-        <Card sx={{ mt: 3, border: '2px solid', borderColor: 'primary.light' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">
-                Detalles: {selectedVariable.variable}
-              </Typography>
-              <Button onClick={() => setSelectedVariable(null)} variant="outlined" size="small">
-                Cerrar
-              </Button>
-            </Box>
-            
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Instrumento: {getInstrumentDisplayName(selectedVariable.instrument, instrumentsDetail)}
-            </Typography>
-
-            {/* Estadísticas */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={6} md={3}>
-                <Paper sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="h4" color="primary">{selectedVariable.data.unique_values_count}</Typography>
-                  <Typography variant="body2">Valores únicos</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Paper sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="h4" color="error">{selectedVariable.data.total_duplicated_items}</Typography>
-                  <Typography variant="body2">Ítems repetidos</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Paper sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="h4" color="warning">{selectedVariable.data.missing_count}</Typography>
-                  <Typography variant="body2">{selectedVariable.data.missing_count === 1 ? 'Valor faltante' : 'Valores faltantes'}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Paper sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="h4">{selectedVariable.data.total_observations}</Typography>
-                  <Typography variant="body2">Total observaciones</Typography>
-                </Paper>
-              </Grid>
-            </Grid>
-
-            {/* Tabla de valores repetidos */}
-            {selectedVariable.data.repeated_details && selectedVariable.data.repeated_details.length > 0 && (
-              <Box>
-                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                  Valores que se repiten
-                </Typography>
-                <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
-                  <Table stickyHeader size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Valor</TableCell>
-                        <TableCell align="center">Apariciones</TableCell>
-                        <TableCell align="center">Repeticiones</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {selectedVariable.data.repeated_details.map((detail, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{detail.value}</TableCell>
-                          <TableCell align="center">{detail.count}</TableCell>
-                          <TableCell align="center">
-                            <Chip 
-                              label={`+${detail.times_repeated}`} 
-                              color="error" 
-                              size="small" 
-                              variant="outlined" 
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </Box>
   );
 };
