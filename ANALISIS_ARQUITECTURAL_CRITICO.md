@@ -152,8 +152,7 @@ frontend/src/
 │           └── ClassificationValuesModal.jsx
 └── core/                      # 🏗️ Shared infrastructure
     ├── api.ts                # HTTP client
-    ├── auth.tsx              # Authentication context  
-    └── types.ts              # Global types
+    └──auth.tsx              # Authentication context  
 ```
 
 #### Características del Plugin System
@@ -1251,8 +1250,7 @@ Total: ~6 hours just to understand structure
 New Developer Can Learn Incrementally:
 ├── Understanding core/ (shared infrastructure)     # Start here
 │   ├── api.ts - HTTP client                       # 15 minutes
-│   ├── auth.tsx - Authentication                   # 15 minutes
-│   └── types.ts - Global types                     # 15 minutes
+│   └── auth.tsx - Authentication                   # 15 minutes
 ├── Understanding pages/ (application flow)         # Then this
 │   ├── Login.tsx - Simple auth page               # 15 minutes
 │   └── Tool.tsx - Tool container                  # 15 minutes  

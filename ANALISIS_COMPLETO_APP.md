@@ -61,8 +61,8 @@ graph TD
     subgraph "Backend (Servidor)"
         A[<fa:fa-server> API Server / Gunicorn]
         B[<fa:fa-flask> Capa API]
-        C[<fa:fa-cogs> Capa Core (Servicios / Modelos)]
-        T[<fa:fa-tools> Capa de Herramientas (Lógica de Negocio)]
+        C[<fa:fa-cogs> Capa Core Servicios / Modelos]
+        T[<fa:fa-tools> Capa de Herramientas / Lógica de Negocio]
         DB[(<fa:fa-file-alt> validador.db)]
     end
 
@@ -181,7 +181,7 @@ graph TD
 
     subgraph "Paso 3: Validación"
         H[Frontend solicita validación] --> I{api/tool_runner.py};
-        I --> J{tools/__init__.py: get_toolkit('ensamblaje')};
+        I --> J{tools/__init__.py: get_toolkit 'ensamblaje'};
         J --> K{tools/ensamblaje_tool/validator.py};
         K --> L[Ejecuta checks de duplicados, metadata, etc.];
         L --> M[Genera ValidationReport];
@@ -191,7 +191,7 @@ graph TD
     subgraph "Paso 4: Exportación"
         O[Frontend solicita exportación] --> P{api/tool_runner.py};
         P --> Q{tools/ensamblaje_tool/exporter.py};
-        Q --> R[Crea archivo (Excel o PDF)];
+        Q --> R[Crea archivo ej. Excel o PDF];
         R --> S[Guarda archivo temporal, registro en DB];
         S --> T[Frontend descarga el archivo por ID];
     end
@@ -293,7 +293,7 @@ El frontend es una aplicación React moderna, interactiva y bien estructurada, d
 
 La arquitectura del frontend ha sido estructurada para ser modular y escalable, reflejando la filosofía del backend.
 
-*   **`src/core`:** Contiene la lógica compartida y central, como el cliente de API (`api.ts`), el contexto de autenticación (`auth.tsx`) y los tipos de datos globales (`types.ts`). Esta es la infraestructura común del frontend.
+*   **`src/core`:** Contiene la lógica compartida y central, como el cliente de API (`api.ts`), el contexto de autenticación (`auth.tsx`). Esta es la infraestructura común del frontend.
 *   **`src/pages`:** Define las vistas principales de la aplicación. `Login.tsx` para la autenticación y `Tool.tsx`, que actúa como un contenedor inteligente capaz de cargar y mostrar la herramienta de validación que el usuario seleccione.
 *   **`src/tools`:** Es el análogo a la capa de herramientas del backend. Cada subdirectorio es una "mini-aplicación" de React que implementa la interfaz de usuario para una herramienta específica.
     *   **`ensamblaje-validator/index.tsx`:** Este es el orquestador de la herramienta. Funciona como una **máquina de estados finitos** que controla el flujo de pasos (Carga -> Categorización -> Reporte) y gestiona todo el estado relevante *únicamente para esta herramienta*.
@@ -357,4 +357,3 @@ stateDiagram-v2
 *   **Gestión de Estado Avanzada en Frontend:** Si una herramienta individual se vuelve extremadamente compleja, podría beneficiarse de usar `useReducer` o Zustand internamente para gestionar su propio estado.
 *   **Optimización de Base de Datos para Concurrencia:** Si la aplicación necesitara en el futuro soportar un alto volumen de usuarios simultáneos, migrar a un sistema cliente-servidor como **PostgreSQL** sería el siguiente paso lógico para la escalabilidad.
 *   **Feedback de Progreso en Tiempo Real (WebSockets):** Implementar WebSockets o SSE para comunicar el progreso de validaciones largas mejoraría significativamente la experiencia de usuario.
-*   **Tipado Completo en Frontend:** Completar las definiciones de tipos en `core/types.ts` para que coincidan con los modelos detallados del backend eliminaría el uso de `any` y aumentaría la seguridad del código TypeScript.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Box, 
   Typography, 
@@ -91,7 +91,9 @@ const CriticalVariablesAnalysis: React.FC<Props> = ({ metadataValidation, instru
   const [expandedView, setExpandedView] = useState<boolean>(true); // Primera apertura = expandido
   const [expandedInstruments, setExpandedInstruments] = useState<Set<string>>(new Set());
 
-  const instrumentsAnalysis = metadataValidation.statistics?.instruments_analysis || {};
+  const instrumentsAnalysis = useMemo(() => {
+    return metadataValidation.statistics?.instruments_analysis || {};
+  }, [metadataValidation.statistics?.instruments_analysis]);
 
   // En primera carga, expandir todos los instrumentos
   useEffect(() => {

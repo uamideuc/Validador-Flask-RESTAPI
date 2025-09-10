@@ -71,3 +71,4 @@ temp/
 
 # Legacy code moved during refactor
 Legacy/
+/frontend/src/dev/

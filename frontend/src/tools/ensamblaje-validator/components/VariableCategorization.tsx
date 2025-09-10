@@ -17,7 +17,7 @@ import SingleInstrumentConfirmation from './SingleInstrumentConfirmation';
 import FileInfoDisplay from './variable-categorization/FileInfoDisplay';
 import VariableSelectionPanel from './variable-categorization/VariableSelectionPanel';
 import CategoryDropZones, { CATEGORIES } from './variable-categorization/CategoryDropZones';
-import CategoryActions, { PreviewActions, CategorizationActions } from './variable-categorization/CategoryActions';
+import { PreviewActions, CategorizationActions } from './variable-categorization/CategoryActions';
 import { AutoCategorizer, type AutoCategorizationProposal } from './variable-categorization/AutoCategorizer';
 import AutoCategorizationDialog from './variable-categorization/AutoCategorizationDialog';
 import ApiService from '../../../core/api';
@@ -68,7 +68,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   // 2. savedCategorization (estado validado) - si no hay cambios temporales
   // 3. Estado inicial (variables sin categorizar) - por defecto
   
-  const getInitialCategorizedVariables = () => {
+  const getInitialCategorizedVariables = useCallback(() => {
     // 🎯 UX: PRIORIDAD CORREGIDA - Estado temporal SIEMPRE tiene prioridad
     
     // Prioridad 1: Estado temporal (cambios no guardados) - DEBE preservarse entre navegaciones  
@@ -111,9 +111,9 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       classification_vars: [],
       other_vars: [],
     };
-  };
+  }, [ensamblajeState.currentCategorization, savedCategorization, sampleValues]);
 
-  const getInitialUncategorizedVariables = () => {
+  const getInitialUncategorizedVariables = useCallback(() => {
     // Prioridad 1: Estado temporal
     if (ensamblajeState.currentCategorization?.uncategorizedVariables) {
       return ensamblajeState.currentCategorization.uncategorizedVariables;
@@ -141,7 +141,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       name,
       sampleValues: sampleValues[name] || []
     }));
-  };
+  }, [ensamblajeState.currentCategorization, savedCategorization, variables, sampleValues]);
 
   // Estado inicial simple para evitar loop infinito
   const [categorizedVariables, setCategorizedVariables] = useState<Record<string, Variable[]>>({
@@ -163,9 +163,12 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
   const [error, setError] = useState<string | null>(null);
 
+  // Extract complex expression to avoid React Hook warning
+  const sampleValuesLength = Object.keys(sampleValues).length;
+
   // 🚨 CRÍTICO: Inicialización única para evitar loop infinito
   useEffect(() => {
-    if (!isInitialized && variables.length > 0 && Object.keys(sampleValues).length > 0) {
+    if (!isInitialized && variables.length > 0 && sampleValuesLength > 0) {
       console.log('🎯 UX: Inicializando estado por única vez');
       
       const initialCategorized = getInitialCategorizedVariables();
@@ -175,7 +178,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       setUncategorizedVariables(initialUncategorized);
       setIsInitialized(true);
     }
-  }, [isInitialized, variables.length, Object.keys(sampleValues).length]);
+  }, [isInitialized, variables.length, sampleValuesLength, getInitialCategorizedVariables, getInitialUncategorizedVariables]);
 
   // Usar ref para evitar loops infinitos
   const lastSyncedState = useRef<string>('');
@@ -250,7 +253,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       hasChangesAfterValidation: hasChangesAfterValidation,
       hasTemporalChanges: hasTemporalChanges
     });
-  }, [currentStateString, isInitialized, setEnsamblajeState]);
+  }, [currentStateString, isInitialized, setEnsamblajeState, categorizedVariables, uncategorizedVariables, ensamblajeState.hasCompletedValidation, ensamblajeState.savedCategorization, sampleValues]);
 
   // Obtener información de columnas renombradas
   const fetchUnnamedColumnsInfo = useCallback(async () => {
@@ -279,7 +282,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         console.warn('No se pudo obtener información de columnas renombradas:', error);
       }
     }
-  }, [uploadId, sheetName, ensamblajeState.lastSessionId]);
+  }, [uploadId, sheetName, ensamblajeState.lastSessionId, setEnsamblajeState]);
 
   useEffect(() => {
     fetchUnnamedColumnsInfo();
@@ -348,10 +351,10 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     }
   }, [selectedVariables, uncategorizedVariables, categorizedVariables, clearSelection]);
 
-  const handleRemoveFromUncategorized = useCallback((variable: Variable) => {
-    // Move to "other_vars" category
-    handleDrop('other_vars', variable);
-  }, [handleDrop]);
+  // const handleRemoveFromUncategorized = useCallback((variable: Variable) => {
+  //   // Move to "other_vars" category
+  //   handleDrop('other_vars', variable);
+  // }, [handleDrop]);
 
   // Auto-categorization logic
   const handleAutoCategorizationClick = useCallback(() => {

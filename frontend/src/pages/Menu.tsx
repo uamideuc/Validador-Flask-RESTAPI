@@ -5,8 +5,7 @@ import {
   Grid,
   Box,
   Paper,
-  CircularProgress,
-  Alert
+  CircularProgress
 } from '@mui/material';
 import ToolCard, { ToolInfo } from '../components/navigation/ToolCard';
 import ApiService from '../core/api';
@@ -19,7 +18,6 @@ interface MenuProps {
 const Menu: React.FC<MenuProps> = ({ onToolSelect }) => {
   const { getToolStatus } = useTools();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>('');
 
   // Definición de herramientas disponibles
   const availableTools: ToolInfo[] = [
@@ -79,11 +77,6 @@ const Menu: React.FC<MenuProps> = ({ onToolSelect }) => {
           </Typography>
         </Paper>
 
-        {error && (
-          <Alert severity="warning" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
 
         {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>

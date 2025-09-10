@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Box, 
   Typography, 
@@ -22,7 +22,6 @@ import {
   Visibility as VisibilityIcon, 
   VisibilityOff as VisibilityOffIcon,
   CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
   Error as ErrorIcon
 } from '@mui/icons-material';
 
@@ -102,7 +101,9 @@ const IdVariablesAnalysis: React.FC<Props> = ({ duplicateValidation, instruments
   const [expandedInstruments, setExpandedInstruments] = useState<Set<string>>(new Set());
   const [selectedVariable, setSelectedVariable] = useState<{variable: string, instrument: string, data: VariableAnalysis} | null>(null);
 
-  const instrumentsAnalysis = duplicateValidation.statistics?.instruments_analysis || {};
+  const instrumentsAnalysis = useMemo(() => {
+    return duplicateValidation.statistics?.instruments_analysis || {};
+  }, [duplicateValidation.statistics?.instruments_analysis]);
 
   useEffect(() => {
     if (expandedView && Object.keys(instrumentsAnalysis).length > 0) {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Typography, Box, CircularProgress, AppBar, Toolbar, IconButton, Tooltip, Button } from '@mui/material';
+import { Typography, Box, CircularProgress, AppBar, Toolbar, Button } from '@mui/material';
 import { Logout } from '@mui/icons-material';
 import { AuthProvider, useAuth } from './core/auth';
 import { ToolsProvider, useTools } from './core/ToolStateContext';

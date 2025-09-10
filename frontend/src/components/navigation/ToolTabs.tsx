@@ -3,9 +3,7 @@ import {
   Box,
   Tabs,
   Tab,
-  IconButton,
-  Typography,
-  Tooltip
+  Typography
 } from '@mui/material';
 import { Home, Build, Assessment } from '@mui/icons-material';
 import ToolStatusBadge, { ToolStatus } from './ToolStatusBadge';

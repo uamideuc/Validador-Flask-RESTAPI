@@ -9,13 +9,11 @@ import {
   Button, 
   CircularProgress,
   Alert,
-  Chip,
-  Badge
+  Chip
 } from '@mui/material';
 import { useAuth } from '../../core/auth';
 import { useEnsamblajeState } from '../../core/ToolStateContext';
 import FileUpload from './components/FileUpload';
-import DataPreview from './components/DataPreview';
 import VariableCategorization from './components/VariableCategorization';
 import ValidationReport from './components/ValidationReport.jsx';
 import FileResetConfirmation from './components/FileResetConfirmation';
