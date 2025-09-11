@@ -272,7 +272,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       // 🚨 CRÍTICO: Si es 404, probablemente uploadId obsoleto de sesión anterior
       if ((error as any)?.response?.status === 404) {
         console.warn('🚨 SECURITY: UploadId not found (404) - possibly from previous session');
-        // Usar callback sin incluir setEnsamblajeState en dependencies para evitar loop
+        // setEnsamblajeState es estable y no necesita estar en dependencies
         setEnsamblajeState({ 
           error: 'Sesión expirada. Por favor, sube tu archivo nuevamente.',
           uploadId: null,
@@ -282,7 +282,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         console.warn('No se pudo obtener información de columnas renombradas:', error);
       }
     }
-  }, [uploadId, sheetName, ensamblajeState.lastSessionId, setEnsamblajeState]);
+  }, [uploadId, sheetName, ensamblajeState.lastSessionId]);
 
   useEffect(() => {
     fetchUnnamedColumnsInfo();
