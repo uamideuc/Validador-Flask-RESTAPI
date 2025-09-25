@@ -18,8 +18,7 @@ import {
   Visibility,
   VisibilityOff,
   School,
-  Security,
-  Info
+  Security
 } from '@mui/icons-material';
 import { useAuth } from '../core/auth';
 

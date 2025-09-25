@@ -360,12 +360,10 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const handleAutoCategorizationClick = useCallback(() => {
     const result = AutoCategorizer.categorize(uncategorizedVariables, CATEGORIES);
 
-    if (result.hasProposals) {
-      setAutoCategoryProposals(result.proposals);
-      setShowAutoCategoryDialog(true);
-    } else {
-      setError('No se encontraron sugerencias de categorización para las columnas actuales.');
-    }
+    // Siempre mostrar el modal, con o sin sugerencias
+    setAutoCategoryProposals(result.proposals);
+    setShowAutoCategoryDialog(true);
+    setError(null); // Limpiar cualquier error previo
   }, [uncategorizedVariables]);
 
   const handleAutoCategorizationAccept = useCallback(() => {

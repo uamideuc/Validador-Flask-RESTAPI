@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, Card, CardContent } from '@mui/material';
+import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, Card, CardContent } from '@mui/material';
 import ClassificationValuesModal from './ClassificationValuesModal';
 import CriticalVariablesAnalysis from './CriticalVariablesAnalysis';
 import IdVariablesAnalysis from './IdVariablesAnalysis';
