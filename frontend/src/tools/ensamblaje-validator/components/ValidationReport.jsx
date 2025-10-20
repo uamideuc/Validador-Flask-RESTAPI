@@ -401,27 +401,6 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}>
             <button 
-              onClick={() => onExport('normalized_xlsx')}
-              style={{
-                width: '100%',
-                padding: '12px 24px',
-                backgroundColor: '#4caf50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
-              }}
-            >
-              📊 Datos Normalizados (Excel)
-            </button>
-            <Typography variant="caption" display="block" sx={{ mt: 1, textAlign: 'center' }}>
-              Base con nombres estandarizados
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <button 
               onClick={() => onExport('validation_excel')}
               style={{
                 width: '100%',
@@ -460,6 +439,27 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
             </button>
             <Typography variant="caption" display="block" sx={{ mt: 1, textAlign: 'center' }}>
               Reporte profesional imprimible
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <button 
+              onClick={() => onExport('normalized_xlsx')}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                backgroundColor: '#388e3c',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+            >
+              📊 Datos Normalizados (Excel)
+            </button>
+            <Typography variant="caption" display="block" sx={{ mt: 1, textAlign: 'center' }}>
+              Base con nombres estandarizados
             </Typography>
           </Grid>
         </Grid>
