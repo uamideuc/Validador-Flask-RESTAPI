@@ -17,6 +17,7 @@ import FileUpload from './components/FileUpload';
 import VariableCategorization from './components/VariableCategorization';
 import ValidationReport from './components/ValidationReport.jsx';
 import FileResetConfirmation from './components/FileResetConfirmation';
+import ProcessResetConfirmation from './components/ProcessResetConfirmation';
 
 const steps = [
   'Subir Archivo',
@@ -87,11 +88,14 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
     });
   };
 
-  // Estado local para modal de confirmación
+  // Estado local para modal de confirmación de archivo nuevo
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [pendingFileData, setPendingFileData] = useState<any>(null);
   // Guardar información del archivo anterior para poder revertir
   const [previousFileInfo, setPreviousFileInfo] = useState<{uploadId: number | null, filename: string | null}>({uploadId: null, filename: null});
+
+  // Estado local para modal de confirmación de reinicio de proceso
+  const [showProcessResetConfirmation, setShowProcessResetConfirmation] = useState(false);
 
   // Función helper para detectar si hay trabajo previo
   const hasExistingWork = (): boolean => {
@@ -271,7 +275,20 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   };
 
   const handleReset = () => {
+    // Mostrar modal de confirmación antes de reiniciar
+    setShowProcessResetConfirmation(true);
+  };
+
+  const handleProcessResetConfirm = () => {
+    // Ejecutar el reset completo
     resetEnsamblajeState();
+    // Cerrar el modal
+    setShowProcessResetConfirmation(false);
+  };
+
+  const handleProcessResetCancel = () => {
+    // Cerrar el modal sin hacer nada
+    setShowProcessResetConfirmation(false);
   };
 
   if (!isAuthenticated) {
@@ -338,8 +355,8 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
             )}
           </Box>
           
-          {/* Botón Reiniciar Proceso en header */}
-          {(parseData || hasCompletedValidation) && (
+          {/* Botón Reiniciar Proceso en header - NO mostrar en el último paso */}
+          {(parseData || hasCompletedValidation) && activeStep < steps.length - 1 && (
             <Button
               variant="outlined"
               color="warning"
@@ -441,16 +458,27 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
           
           {/* Botón derecho - posición absoluta */}
           <Box sx={{ position: 'absolute', right: 0 }}>
-            {activeStep < steps.length - 1 && (
+            {activeStep < steps.length - 1 ? (
               <Button
                 variant="outlined"
                 onClick={handleNext}
-                disabled={isLoading || 
-                         (activeStep === 0 && !parseData) || 
+                disabled={isLoading ||
+                         (activeStep === 0 && !parseData) ||
                          (activeStep === 1 && !hasCompletedValidation)}
                 endIcon={<span>→</span>}
               >
                 Siguiente Paso
+              </Button>
+            ) : (
+              // En el último paso, mostrar botón de reiniciar proceso
+              <Button
+                variant="outlined"
+                color="warning"
+                onClick={handleReset}
+                disabled={isLoading}
+                startIcon={<span>↻</span>}
+              >
+                Reiniciar Proceso
               </Button>
             )}
           </Box>
@@ -459,12 +487,19 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
 {/* Botón de "Procesar Nuevo Archivo" removido - ahora usamos "Reiniciar Proceso" */}
       </Paper>
 
-      {/* Modal de confirmación para reseteo */}
+      {/* Modal de confirmación para reseteo de archivo */}
       <FileResetConfirmation
         open={showResetConfirmation}
         onConfirm={handleResetConfirm}
         onCancel={handleResetCancel}
         filename={pendingFileData?.filename || 'archivo seleccionado'}
+      />
+
+      {/* Modal de confirmación para reinicio de proceso */}
+      <ProcessResetConfirmation
+        open={showProcessResetConfirmation}
+        onConfirm={handleProcessResetConfirm}
+        onCancel={handleProcessResetCancel}
       />
     </Box>
   );
