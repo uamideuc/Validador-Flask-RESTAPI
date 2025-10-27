@@ -55,5 +55,5 @@ TYPOGRAPHY = {
 }
 
 # Brand text
-BRAND_NAME = "Centro UC Medición - MIDE"
+BRAND_NAME = "MIDE UC"
 BRAND_SUBTITLE = "Universidad Católica de Chile"

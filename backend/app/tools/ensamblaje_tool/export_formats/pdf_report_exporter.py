@@ -30,34 +30,28 @@ from ....core.assets.brand import (
 )
 
 
-class NumberedCanvas(canvas.Canvas):
-    """Canvas personalizado con numeración de páginas y header/footer"""
+class SimpleNumberedCanvas(canvas.Canvas):
+    """Canvas with page numbers (without total pages to maintain bookmark compatibility)"""
 
     def __init__(self, *args, **kwargs):
         canvas.Canvas.__init__(self, *args, **kwargs)
-        self._saved_page_states = []
 
     def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
+        """Draw page decorations before showing the page"""
+        self.draw_page_decorations()
+        canvas.Canvas.showPage(self)
 
-    def save(self):
-        num_pages = len(self._saved_page_states)
-        for state in self._saved_page_states:
-            self.__dict__.update(state)
-            self.draw_page_decorations(self._pageNumber, num_pages)
-            canvas.Canvas.showPage(self)
-        canvas.Canvas.save(self)
-
-    def draw_page_decorations(self, page_num, total_pages):
+    def draw_page_decorations(self):
         """Dibujar header y footer en cada página"""
         page_width, page_height = A4
+        page_num = self.getPageNumber()
 
         # Skip decorations for cover page (page 1)
         if page_num == 1:
             return
 
         # Header line
+        self.saveState()
         self.setStrokeColor(BRAND_COLORS['divider'])
         self.setLineWidth(0.5)
         self.line(40, page_height - 50, page_width - 40, page_height - 50)
@@ -66,24 +60,25 @@ class NumberedCanvas(canvas.Canvas):
         self.setFont(TYPOGRAPHY['font_family'], TYPOGRAPHY['size_small'])
         self.setFillColor(BRAND_COLORS['text_secondary'])
 
-        # Page number (right)
+        # Page number (right) - sin "de Y" para mantener compatibilidad con bookmarks
         self.drawRightString(
             page_width - 40,
             30,
-            f"Página {page_num} de {total_pages}"
+            f"Página {page_num}"
         )
 
         # Document title (left)
         self.drawString(
             40,
             30,
-            "Reporte de Validación - Centro MIDE"
+            "Reporte de Validación - Centro MIDE UC"
         )
 
         # Footer line
         self.setStrokeColor(BRAND_COLORS['divider'])
         self.setLineWidth(0.5)
         self.line(40, 40, page_width - 40, 40)
+        self.restoreState()
 
 
 class PDFReportExporter:
@@ -154,12 +149,19 @@ class PDFReportExporter:
             if isinstance(categorization_dict, str):
                 categorization_dict = json.loads(categorization_dict)
 
+            # Extract file metadata
+            file_metadata = {
+                'original_filename': validation_session.get('filename', 'Archivo no especificado'),
+                'sheet_name': validation_session.get('sheet_name'),
+                'analysis_date': datetime.now()
+            }
+
             filename = f"reporte_validacion_{validation_session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             temp_dir = tempfile.gettempdir()
             file_path = os.path.join(temp_dir, filename)
 
             # Generate PDF
-            buffer = self._generate_pdf_buffer(validation_results, categorization_dict)
+            buffer = self._generate_pdf_buffer(validation_results, categorization_dict, file_metadata)
 
             with open(file_path, 'wb') as f:
                 f.write(buffer.getvalue())
@@ -188,7 +190,7 @@ class PDFReportExporter:
                 'traceback': traceback.format_exc()
             }
 
-    def _generate_pdf_buffer(self, validation_data: Dict, categorization: Dict) -> BytesIO:
+    def _generate_pdf_buffer(self, validation_data: Dict, categorization: Dict, file_metadata: Dict) -> BytesIO:
         """Generar buffer PDF con diseño profesional completo"""
         buffer = BytesIO()
 
@@ -205,7 +207,7 @@ class PDFReportExporter:
         story = []
 
         # 1. Cover page
-        story.extend(self._create_cover_page(validation_data))
+        story.extend(self._create_cover_page(validation_data, file_metadata))
         story.append(PageBreak())
 
         # 2. Table of contents
@@ -242,8 +244,8 @@ class PDFReportExporter:
         # 10. Conclusions and recommendations
         story.extend(self._create_conclusions_section(validation_data))
 
-        # Build PDF with custom canvas
-        doc.build(story, canvasmaker=NumberedCanvas)
+        # Build PDF with custom canvas (SimpleNumberedCanvas allows bookmarks to work)
+        doc.build(story, canvasmaker=SimpleNumberedCanvas)
         buffer.seek(0)
         return buffer
 
@@ -376,7 +378,7 @@ class PDFReportExporter:
             parent=base_styles['Normal'],
             fontName=TYPOGRAPHY['font_family_bold'],
             fontSize=14,
-            textColor=BRAND_COLORS['primary'],
+            textColor=BRAND_COLORS['surface'],
             spaceAfter=10,
             spaceBefore=15,
             leading=16
@@ -384,7 +386,7 @@ class PDFReportExporter:
 
         return styles
 
-    def _create_cover_page(self, validation_data: Dict) -> List:
+    def _create_cover_page(self, validation_data: Dict, file_metadata: Dict) -> List:
         """Crear portada profesional"""
         story = []
 
@@ -442,38 +444,30 @@ class PDFReportExporter:
             ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
         ]))
         story.append(status_table)
-        story.append(Spacer(1, 40))
+        story.append(Spacer(1, 50))
 
-        # Key metrics
-        total_items = summary.get('total_items', 0)
-        total_instruments = summary.get('total_instruments', 0)
+        # File information (elegante, sin tabla)
+        filename = file_metadata.get('original_filename', 'Archivo no especificado')
+        sheet_name = file_metadata.get('sheet_name')
+        analysis_date = file_metadata.get('analysis_date', datetime.now())
 
-        metrics_data = [
-            [Paragraph("<b>Métrica</b>", self.styles['Body']),
-             Paragraph("<b>Valor</b>", self.styles['Body'])],
-            [Paragraph("Total de Ítems Analizados", self.styles['Body']),
-             Paragraph(f"<b>{total_items:,}</b>", self.styles['Body'])],
-            [Paragraph("Total de Instrumentos", self.styles['Body']),
-             Paragraph(f"<b>{total_instruments}</b>", self.styles['Body'])],
-            [Paragraph("Fecha de Análisis", self.styles['Body']),
-             Paragraph(f"<b>{datetime.now().strftime('%d/%m/%Y %H:%M')}</b>", self.styles['Body'])],
-        ]
+        story.append(Paragraph(
+            f"<b>Archivo:</b> {filename}",
+            self.styles['Body']
+        ))
+        story.append(Spacer(1, 3))
 
-        metrics_table = Table(metrics_data, colWidths=[3*inch, 2*inch])
-        metrics_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), BRAND_COLORS['table_header']),
-            ('TEXTCOLOR', (0, 0), (-1, 0), BRAND_COLORS['surface']),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 0), (-1, 0), TYPOGRAPHY['font_family_bold']),
-            ('FONTSIZE', (0, 0), (-1, 0), TYPOGRAPHY['size_body']),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('TOPPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), BRAND_COLORS['table_row_even']),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRAND_COLORS['table_row_odd'], BRAND_COLORS['table_row_even']]),
-            ('GRID', (0, 0), (-1, -1), 0.5, BRAND_COLORS['divider']),
-        ]))
-        story.append(metrics_table)
+        if sheet_name:
+            story.append(Paragraph(
+                f"<b>Hoja:</b> {sheet_name}",
+                self.styles['Body']
+            ))
+            story.append(Spacer(1, 3))
+
+        story.append(Paragraph(
+            f"<b>Fecha de análisis:</b> {analysis_date.strftime('%d/%m/%Y a las %H:%M')}",
+            self.styles['Body']
+        ))
         story.append(Spacer(1, 60))
 
         # Footer with logo
@@ -497,19 +491,29 @@ class PDFReportExporter:
         story.append(Paragraph("Tabla de Contenidos", self.styles['Heading1']))
         story.append(Spacer(1, 20))
 
-        # Nota explicativa sobre navegación
+        # Propósito del documento
         story.append(Paragraph(
-            "<i>Para navegar por el documento, abra el panel de marcadores en su lector de PDF.</i>",
-            self.styles['Body']
+            "Este documento busca ser un <b>registro del proceso de validación realizado</b>. "
+            "Para realizar un proceso de revisión orientado a la corrección de la base de datos, "
+            "utilice el <b>archivo Excel de validación</b>, que es una herramienta más adecuada "
+            "para identificar y corregir problemas específicos.",
+            self.styles['BodyJustified']
         ))
         story.append(Spacer(1, 15))
+
+        # Introducción a los contenidos
+        story.append(Paragraph(
+            "Los contenidos de este informe son:",
+            self.styles['Body']
+        ))
+        story.append(Spacer(1, 10))
 
         toc_items = [
             "1. Resumen Ejecutivo",
             "2. Categorización de Variables",
-            "3. Validación de Instrumentos",
+            "3. Descripción de Instrumentos",
             "4. Validación de Duplicados",
-            "5. Validación de Metadata",
+            "5. Validación de Información Crítica",
             "6. Análisis de Variables de Clasificación",
             "7. Análisis Detallado por Instrumento",
             "8. Conclusiones y Recomendaciones",
@@ -531,6 +535,16 @@ class PDFReportExporter:
 
         summary = validation_data.get('summary', {})
 
+        # Instrumentos e ítems
+        total_items = summary.get('total_items', 0)
+        total_instruments = summary.get('total_instruments', 0)
+
+        story.append(Paragraph(
+            f"Se analizaron <b>{total_items:,} ítems</b> distribuidos en <b>{total_instruments} instrumento(s)</b>.",
+            self.styles['Body']
+        ))
+        story.append(Spacer(1, 15))
+
         # Problem count
         dup_validation = validation_data.get('duplicate_validation', {})
         meta_validation = validation_data.get('metadata_validation', {})
@@ -548,16 +562,17 @@ class PDFReportExporter:
 
         total_problems = total_duplicates + total_missing
 
-        # Summary paragraph
-        status_text = {
-            'success': "La validación se completó exitosamente sin errores críticos.",
-            'warning': "La validación se completó con algunas advertencias que requieren atención.",
-            'error': "La validación detectó errores críticos que deben ser corregidos."
+        # Conclusión general (movida desde sección 8)
+        status = summary.get('validation_status', 'unknown')
+
+        conclusion_text = {
+            'success': "La base de datos ha superado todas las validaciones y no se encontraron errores críticos.",
+            'warning': "La base de datos presenta algunas advertencias que deben ser revisadas antes de continuar.",
+            'error': "La base de datos presenta errores críticos que deben ser corregidos antes de utilizarla en análisis."
         }
 
-        status = summary.get('validation_status', 'unknown')
         story.append(Paragraph(
-            status_text.get(status, "Estado de validación desconocido."),
+            f"<b>Conclusión:</b> {conclusion_text.get(status, 'Estado de validación desconocido.')}",
             self.styles['BodyJustified']
         ))
         story.append(Spacer(1, 15))
@@ -592,30 +607,53 @@ class PDFReportExporter:
         story.append(problems_table)
         story.append(Spacer(1, 20))
 
-        # Variables categorization summary
-        story.append(Paragraph("Variables Categorizadas", self.styles['Heading2']))
+        # Recomendaciones dinámicas
+        story.append(Paragraph("Recomendaciones", self.styles['Heading2']))
         story.append(Spacer(1, 10))
 
-        categories = [
-            ('instrument_vars', 'Identificación de Instrumento', 'instrument_vars'),
-            ('item_id_vars', 'Identificación de Ítems', 'item_id_vars'),
-            ('metadata_vars', 'Información Crítica', 'metadata_vars'),
-            ('classification_vars', 'Información Complementaria', 'classification_vars'),
-        ]
+        recommendations = self._generate_recommendations(validation_data)
 
-        for key, label, color_key in categories:
-            vars_list = categorization.get(key, [])
-            if vars_list:
-                color_hex = BRAND_COLORS[color_key]
-                vars_text = ', '.join(vars_list) if len(vars_list) <= 5 else f"{', '.join(vars_list[:5])}, ... ({len(vars_list)} total)"
-
-                story.append(Paragraph(
-                    f"<font color='{color_hex}'><b>●</b></font> <b>{label}</b> ({len(vars_list)}): {vars_text}",
-                    self.styles['Body']
-                ))
-                story.append(Spacer(1, 5))
+        for i, rec in enumerate(recommendations, 1):
+            story.append(Paragraph(f"{i}. {rec}", self.styles['BodyJustified']))
+            story.append(Spacer(1, 8))
 
         return story
+
+    def _generate_recommendations(self, validation_data: Dict) -> List[str]:
+        """Generar lista de recomendaciones basadas en los resultados de validación"""
+        recommendations = []
+
+        # Check for duplicates
+        dup_validation = validation_data.get('duplicate_validation', {})
+        if not dup_validation.get('is_valid', True):
+            recommendations.append(
+                "Revisar y corregir los valores duplicados en las variables de identificación de ítems. "
+                "Cada ítem debe tener un identificador único dentro de cada instrumento."
+            )
+
+        # Check for missing metadata
+        meta_validation = validation_data.get('metadata_validation', {})
+        if not meta_validation.get('is_valid', True):
+            recommendations.append(
+                "Completar los valores faltantes en las variables de información crítica. "
+                "Esta información es esencial para el procesamiento de los datos."
+            )
+
+        # General recommendations
+        recommendations.append(
+            "Descargar el Excel de validación para revisar visualmente las celdas con problemas "
+            "(identificadas con colores según su categoría)."
+        )
+        recommendations.append(
+            "Utilizar las columnas val_* en el Excel de validación para identificar rápidamente "
+            "qué filas tienen problemas y de qué tipo."
+        )
+        recommendations.append(
+            "Una vez corregidos los errores, volver a ejecutar la validación para confirmar que "
+            "todos los problemas han sido resueltos."
+        )
+
+        return recommendations
 
     def _create_categorization_section(self, categorization: Dict) -> List:
         """Crear sección de categorización de variables"""
@@ -650,20 +688,12 @@ class PDFReportExporter:
 
             color = BRAND_COLORS[key]
 
-            # Category header with colored box
-            header_table = Table(
-                [[Paragraph(f"<b>{title}</b> ({len(vars_list)} variables)", self.styles['Body'])]],
-                colWidths=[6*inch]
-            )
-            header_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), color),
-                ('TEXTCOLOR', (0, 0), (-1, -1), BRAND_COLORS['surface']),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('LEFTPADDING', (0, 0), (-1, -1), 10),
-            ]))
-            story.append(header_table)
+            # Category header with colored text (no background)
+            color_hex = f"#{color.hexval()[2:]}" if hasattr(color, 'hexval') else str(color)
+            story.append(Paragraph(
+                f"<font color='{color_hex}'><b>{title}</b></font> ({len(vars_list)} variables)",
+                self.styles['Heading3']
+            ))
             story.append(Spacer(1, 5))
 
             # Description
@@ -680,34 +710,38 @@ class PDFReportExporter:
         return story
 
     def _create_instrument_validation_section(self, validation_data: Dict) -> List:
-        """Crear sección de validación de instrumentos"""
+        """Crear sección descriptiva de instrumentos"""
         story = []
 
-        self._add_bookmark(story, "3. Validación de Instrumentos", 0)
-        story.append(Paragraph('3. Validación de Instrumentos', self.styles['Heading1']))
+        self._add_bookmark(story, "3. Descripción de Instrumentos", 0)
+        story.append(Paragraph('3. Descripción de Instrumentos', self.styles['Heading1']))
         story.append(Spacer(1, 15))
 
         instrument_validation = validation_data.get('instrument_validation', {})
-        is_valid = instrument_validation.get('is_valid', True)
+        instruments_detail = instrument_validation.get('instruments_detail', {})
+        summary = validation_data.get('summary', {})
 
-        if is_valid:
+        # Texto descriptivo
+        story.append(Paragraph(
+            "Los datos fueron agrupados y analizados según las siguientes características de instrumento:",
+            self.styles['BodyJustified']
+        ))
+        story.append(Spacer(1, 15))
+
+        # Información por instrumento
+        for instrument_key, detail in instruments_detail.items():
+            display_name = detail.get('display_name', instrument_key)
+            observations = detail.get('observations_count', 0)
+
             story.append(Paragraph(
-                "<font color='green'><b>VÁLIDO:</b></font> Las variables de identificación de instrumentos están correctamente configuradas.",
-                self.styles['Body']
+                f"<b>{display_name}</b>",
+                self.styles['Heading3']
             ))
-        else:
             story.append(Paragraph(
-                "<font color='red'><b>ERROR:</b></font> Se detectaron problemas en las variables de identificación de instrumentos.",
+                f"Ítems analizados: {observations:,}",
                 self.styles['Body']
             ))
             story.append(Spacer(1, 10))
-
-            # Show ALL errors
-            errors = instrument_validation.get('errors', [])
-            if errors:
-                for error in errors:
-                    error_msg = error.get('message', 'Error desconocido')
-                    story.append(Paragraph(f"• {error_msg}", self.styles['Body']))
 
         story.append(Spacer(1, 15))
         return story
@@ -728,7 +762,7 @@ class PDFReportExporter:
 
         if is_valid or total_duplicates == 0:
             story.append(Paragraph(
-                "<font color='green'><b>VÁLIDO:</b></font> No se encontraron ítems duplicados en los identificadores.",
+                "<font color='green'><b>Sin errores:</b></font> No se encontraron ítems duplicados en los identificadores.",
                 self.styles['Body']
             ))
         else:
@@ -751,7 +785,7 @@ class PDFReportExporter:
 
                     # Caja de encabezado del instrumento
                     inst_header = Table(
-                        [[Paragraph(f"<b>Instrumento: {instrument_display}</b>", self.styles['Body'])]],
+                        [[Paragraph(f"<b>Instrumento: {instrument_display}</b>", self.styles['InstrumentName'])]],
                         colWidths=[6.5*inch]
                     )
                     inst_header.setStyle(TableStyle([
@@ -793,8 +827,8 @@ class PDFReportExporter:
         """Crear sección de validación de metadata con nueva estructura"""
         story = []
 
-        self._add_bookmark(story, "5. Validación de Metadata", 0)
-        story.append(Paragraph('5. Validación de Metadata', self.styles['Heading1']))
+        self._add_bookmark(story, "5. Validación de Información Crítica", 0)
+        story.append(Paragraph('5. Validación de Información Crítica', self.styles['Heading1']))
         story.append(Spacer(1, 15))
 
         meta_validation = validation_data.get('metadata_validation', {})
@@ -806,7 +840,7 @@ class PDFReportExporter:
 
         if is_valid or total_missing == 0:
             story.append(Paragraph(
-                "<font color='green'><b>VÁLIDO:</b></font> Todas las variables de información crítica están completas.",
+                "<font color='green'><b>Sin errores:</b></font> No se encontraron valores faltantes. Todas las variables de información crítica están completas.",
                 self.styles['Body']
             ))
         else:
@@ -828,7 +862,7 @@ class PDFReportExporter:
 
                     # Caja de encabezado del instrumento
                     inst_header = Table(
-                        [[Paragraph(f"<b>Instrumento: {instrument_display}</b>", self.styles['Body'])]],
+                        [[Paragraph(f"<b>Instrumento: {instrument_display}</b>", self.styles['InstrumentName'])]],
                         colWidths=[6.5*inch]
                     )
                     inst_header.setStyle(TableStyle([
@@ -948,7 +982,7 @@ class PDFReportExporter:
                     duplicated = var_data.get('duplicated_values_count', 0)
                     missing = var_data.get('missing_count', 0)
 
-                    status = "VÁLIDO" if duplicated == 0 and missing == 0 else "ERROR"
+                    status = "SIN ERRORES" if duplicated == 0 and missing == 0 else "ERROR"
                     color = "green" if duplicated == 0 and missing == 0 else "red"
 
                     story.append(Paragraph(
@@ -973,7 +1007,7 @@ class PDFReportExporter:
                         missing = var_data.get('missing_count', 0)
                         completeness = ((total_obs - missing) / total_obs * 100) if total_obs > 0 else 0
 
-                        status = "VÁLIDO" if missing == 0 else "ERROR"
+                        status = "SIN ERRORES" if missing == 0 else "ERROR"
                         color = "green" if missing == 0 else "red"
 
                         story.append(Paragraph(
@@ -1027,37 +1061,7 @@ class PDFReportExporter:
         story.append(Paragraph("<b>Recomendaciones:</b>", self.styles['Heading2']))
         story.append(Spacer(1, 10))
 
-        recommendations = []
-
-        # Check for duplicates
-        dup_validation = validation_data.get('duplicate_validation', {})
-        if not dup_validation.get('is_valid', True):
-            recommendations.append(
-                "Revisar y corregir los valores duplicados en las variables de identificación de ítems. "
-                "Cada ítem debe tener un identificador único dentro de cada instrumento."
-            )
-
-        # Check for missing metadata
-        meta_validation = validation_data.get('metadata_validation', {})
-        if not meta_validation.get('is_valid', True):
-            recommendations.append(
-                "Completar los valores faltantes en las variables de información crítica. "
-                "Esta información es esencial para el correcto procesamiento de los datos."
-            )
-
-        # General recommendations
-        recommendations.append(
-            "Descargar el Excel de validación para revisar visualmente las celdas con problemas "
-            "(identificadas con colores según su categoría)."
-        )
-        recommendations.append(
-            "Utilizar las columnas val_* en el Excel de validación para identificar rápidamente "
-            "qué filas tienen problemas y de qué tipo."
-        )
-        recommendations.append(
-            "Una vez corregidos los errores, volver a ejecutar la validación para confirmar que "
-            "todos los problemas han sido resueltos."
-        )
+        recommendations = self._generate_recommendations(validation_data)
 
         for i, rec in enumerate(recommendations, 1):
             story.append(Paragraph(f"{i}. {rec}", self.styles['BodyJustified']))

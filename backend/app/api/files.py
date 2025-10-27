@@ -195,7 +195,8 @@ def parse_file(upload_id):
         
         # Update database with variables and sheet name
         variables = parse_result['columns']
-        db.update_upload_variables(upload_id, variables)
+        sheet_name = parse_result.get('sheet_name')
+        db.update_upload_variables(upload_id, variables, sheet_name)
         
         # Prepare response (exclude DataFrame from response)
         response_data = {

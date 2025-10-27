@@ -438,7 +438,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               📄 Reporte de Validación (PDF)
             </button>
             <Typography variant="caption" display="block" sx={{ mt: 1, textAlign: 'center' }}>
-              Reporte profesional imprimible
+              Reporte imprimible
             </Typography>
           </Grid>
           <Grid item xs={12} md={4}>

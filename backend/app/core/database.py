@@ -129,16 +129,16 @@ class DatabaseManager:
                 return record
             return None
     
-    def update_upload_variables(self, upload_id: int, variables: List[str]):
-        """Update variables for an upload"""
+    def update_upload_variables(self, upload_id: int, variables: List[str], sheet_name: Optional[str] = None):
+        """Update variables and sheet name for an upload"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             variables_json = json.dumps(variables)
-            
+
             cursor.execute('''
-                UPDATE uploads SET variables_json = ?, status = 'parsed' WHERE id = ?
-            ''', (variables_json, upload_id))
-            
+                UPDATE uploads SET variables_json = ?, sheet_name = ?, status = 'parsed' WHERE id = ?
+            ''', (variables_json, sheet_name, upload_id))
+
             conn.commit()
     
     def create_validation_session(self, upload_id: int, session_id: str, categorization: Dict[str, Any]) -> int:
@@ -177,7 +177,7 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT vs.*, u.filename, u.file_path 
+                SELECT vs.*, u.filename, u.file_path, u.sheet_name
                 FROM validation_sessions vs
                 JOIN uploads u ON vs.upload_id = u.id
                 WHERE vs.id = ?
