@@ -64,9 +64,9 @@ const FileResetConfirmation: React.FC<FileResetConfirmationProps> = ({
           </Typography>
         </Box>
 
-        <Alert 
-          severity="info" 
-          sx={{ 
+        <Alert
+          severity="info"
+          sx={{
             mb: 3,
             backgroundColor: '#e3f2fd',
             border: '1px solid #bbdefb',
@@ -74,7 +74,21 @@ const FileResetConfirmation: React.FC<FileResetConfirmationProps> = ({
           }}
         >
           <Typography variant="body2">
-            <strong>Tu trabajo actual se reiniciará:</strong> Se perderá tu categorización de columnas y resultados de validación previos.
+            <strong>Tu trabajo actual se reiniciará:</strong> Se perderán los resultados de validación, pero tu categorización de columnas se conservará.
+          </Typography>
+        </Alert>
+
+        <Alert
+          severity="success"
+          sx={{
+            mb: 3,
+            backgroundColor: '#f1f8e9',
+            border: '1px solid #c5e1a5',
+            '& .MuiAlert-icon': { color: '#7cb342' }
+          }}
+        >
+          <Typography variant="body2">
+            <strong>✨ Tu categorización se conservará:</strong> Si el nuevo archivo tiene las mismas columnas, podrás replicar tu categorización anterior automáticamente.
           </Typography>
         </Alert>
 

@@ -20,6 +20,8 @@ import CategoryDropZones, { CATEGORIES } from './variable-categorization/Categor
 import { PreviewActions, CategorizationActions } from './variable-categorization/CategoryActions';
 import { AutoCategorizer, type AutoCategorizationProposal } from './variable-categorization/AutoCategorizer';
 import AutoCategorizationDialog from './variable-categorization/AutoCategorizationDialog';
+import { UserCategorizationReplicator, type ReplicationProposal } from './variable-categorization/UserCategorizationReplicator';
+import UserCategorizationReplicationDialog from './variable-categorization/UserCategorizationReplicationDialog';
 import ApiService from '../../../core/api';
 import { useEnsamblajeState } from '../../../core/ToolStateContext';
 
@@ -161,10 +163,39 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const [showAutoCategoryDialog, setShowAutoCategoryDialog] = useState(false);
   const [autoCategoryProposals, setAutoCategoryProposals] = useState<AutoCategorizationProposal[]>([]);
 
+  // 🎯 CONSERVACIÓN: Estado para replicación de categorización
+  const [showUserReplicationDialog, setShowUserReplicationDialog] = useState(false);
+  const [userReplicationProposals, setUserReplicationProposals] = useState<ReplicationProposal[]>([]);
+  const [userReplicationStats, setUserReplicationStats] = useState<{
+    matchCount: number;
+    unmatchedCount: number;
+    totalVariables: number;
+  }>({ matchCount: 0, unmatchedCount: 0, totalVariables: 0 });
+
   const [error, setError] = useState<string | null>(null);
 
   // Extract complex expression to avoid React Hook warning
   const sampleValuesLength = Object.keys(sampleValues).length;
+
+  // 🎯 CONSERVACIÓN: Calcular coincidencias con categorización anterior
+  const userCategorizationMatches = useMemo(() => {
+    console.log('🔍 DEBUG: Calculando coincidencias...');
+    console.log('🔍 lastUserCategorization:', ensamblajeState.lastUserCategorization);
+    console.log('🔍 Variables actuales:', variables);
+
+    if (!ensamblajeState.lastUserCategorization) {
+      console.log('❌ No hay categorización previa guardada');
+      return { hasMatches: false, matchCount: 0, totalVariables: variables.length, matchPercentage: 0 };
+    }
+
+    const matches = UserCategorizationReplicator.calculateMatches(
+      ensamblajeState.lastUserCategorization.categorization,
+      variables
+    );
+
+    console.log('✅ Coincidencias encontradas:', matches);
+    return matches;
+  }, [ensamblajeState.lastUserCategorization, variables]);
 
   // 🚨 CRÍTICO: Inicialización única para evitar loop infinito
   useEffect(() => {
@@ -381,6 +412,45 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     setAutoCategoryProposals([]);
   }, []);
 
+  // 🎯 CONSERVACIÓN: Handlers para replicación de categorización del usuario
+  const handleUserReplicationClick = useCallback(() => {
+    if (!ensamblajeState.lastUserCategorization) {
+      return;
+    }
+
+    const result = UserCategorizationReplicator.replicate(
+      ensamblajeState.lastUserCategorization.categorization,
+      uncategorizedVariables,
+      CATEGORIES
+    );
+
+    setUserReplicationProposals(result.proposals);
+    setUserReplicationStats({
+      matchCount: result.matchCount,
+      unmatchedCount: result.unmatchedCount,
+      totalVariables: result.totalVariables
+    });
+    setShowUserReplicationDialog(true);
+    setError(null);
+  }, [ensamblajeState.lastUserCategorization, uncategorizedVariables]);
+
+  const handleUserReplicationAccept = useCallback(() => {
+    userReplicationProposals.forEach(({ variable, categoryId }) => {
+      handleDrop(categoryId, variable);
+    });
+
+    setShowUserReplicationDialog(false);
+    setUserReplicationProposals([]);
+    setUserReplicationStats({ matchCount: 0, unmatchedCount: 0, totalVariables: 0 });
+    setError(null);
+  }, [userReplicationProposals, handleDrop]);
+
+  const handleUserReplicationCancel = useCallback(() => {
+    setShowUserReplicationDialog(false);
+    setUserReplicationProposals([]);
+    setUserReplicationStats({ matchCount: 0, unmatchedCount: 0, totalVariables: 0 });
+  }, []);
+
   const handleClearAllCategorization = useCallback(() => {
     // Recolectar todas las variables de todas las categorías
     const allCategorizedVars: Variable[] = [];
@@ -585,6 +655,17 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           onCancel={handleAutoCategorizationCancel}
         />
 
+        {/* 🎯 CONSERVACIÓN: User Categorization Replication Dialog */}
+        <UserCategorizationReplicationDialog
+          open={showUserReplicationDialog}
+          proposals={userReplicationProposals}
+          matchCount={userReplicationStats.matchCount}
+          unmatchedCount={userReplicationStats.unmatchedCount}
+          totalVariables={userReplicationStats.totalVariables}
+          onAccept={handleUserReplicationAccept}
+          onCancel={handleUserReplicationCancel}
+        />
+
         {/* Data Preview Component */}
         {showPreview && (
           <Box sx={{ mb: 3 }}>
@@ -610,6 +691,9 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           totalCategorized={totalCategorized}
           onAutoCategorizationClick={handleAutoCategorizationClick}
           onClearAllCategorization={handleClearAllCategorization}
+          hasUserCategorization={userCategorizationMatches.hasMatches}
+          userCategorizationMatchCount={userCategorizationMatches.matchCount}
+          onUserReplicationClick={handleUserReplicationClick}
         />
 
         {/* Category drop zones */}

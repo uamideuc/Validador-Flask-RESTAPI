@@ -71,7 +71,21 @@ const ProcessResetConfirmation: React.FC<ProcessResetConfirmationProps> = ({
           }}
         >
           <Typography variant="body2">
-            <strong>Todo tu trabajo se eliminará:</strong> Se perderá el archivo cargado, la categorización de columnas y todos los resultados de validación.
+            <strong>Todo tu trabajo se eliminará:</strong> Se perderán el archivo cargado y todos los resultados de validación, pero tu categorización se conservará.
+          </Typography>
+        </Alert>
+
+        <Alert
+          severity="success"
+          sx={{
+            mb: 3,
+            backgroundColor: '#f1f8e9',
+            border: '1px solid #c5e1a5',
+            '& .MuiAlert-icon': { color: '#7cb342' }
+          }}
+        >
+          <Typography variant="body2">
+            <strong>✨ Tu categorización se conservará:</strong> Al cargar un nuevo archivo con las mismas columnas, podrás replicar tu categorización anterior.
           </Typography>
         </Alert>
 

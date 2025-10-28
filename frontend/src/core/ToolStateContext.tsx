@@ -16,6 +16,11 @@ export interface EnsamblajeState {
   hasChangesAfterValidation: boolean; // Indica si hay cambios después de validar
   hasTemporalChanges: boolean; // 🎯 UX: Cambios temporales sin guardar post-validación
   lastSessionId: string | null; // 🚨 CRÍTICO: Para detectar cambios de sesión
+  lastUserCategorization: { // 🎯 CONSERVACIÓN: Categorización previa para replicación
+    categorization: any; // { instrument_vars: [...], item_id_vars: [...], etc }
+    variables: string[]; // Lista de nombres para matching
+    timestamp: number;   // Timestamp de cuándo se guardó
+  } | null;
   error: string;
   isLoading: boolean;
 }
@@ -63,6 +68,7 @@ const initialEnsamblajeState: EnsamblajeState = {
   hasChangesAfterValidation: false, // Nuevo campo para cambios post-validación
   hasTemporalChanges: false, // 🎯 UX: Sin cambios temporales inicialmente
   lastSessionId: null, // 🚨 CRÍTICO: Tracking de sesión
+  lastUserCategorization: null, // 🎯 CONSERVACIÓN: Sin categorización previa inicialmente
   error: '',
   isLoading: false,
 };
@@ -77,6 +83,11 @@ const toolsReducer = (state: ToolsState, action: ToolsAction): ToolsState => {
       };
     
     case 'SET_ENSAMBLAJE_STATE':
+      // 🔍 Log solo si se está guardando categorización
+      if (action.payload.lastUserCategorization !== undefined) {
+        console.log('💾 SET_ENSAMBLAJE_STATE: Guardando lastUserCategorization:', action.payload.lastUserCategorization);
+      }
+
       return {
         ...state,
         ensamblaje: {
@@ -86,9 +97,21 @@ const toolsReducer = (state: ToolsState, action: ToolsAction): ToolsState => {
       };
     
     case 'RESET_ENSAMBLAJE_STATE':
+      // 🎯 CONSERVACIÓN: Preservar lastUserCategorization durante reset
+      const preservedCategorization = state.ensamblaje?.lastUserCategorization || null;
+      const preservedSessionId = state.ensamblaje?.lastSessionId || null;
+
+      console.log('🔄 RESET_ENSAMBLAJE_STATE ejecutado');
+      console.log('🔍 Categorización a preservar:', preservedCategorization);
+      console.log('🔍 Session ID a preservar:', preservedSessionId);
+
       return {
         ...state,
-        ensamblaje: initialEnsamblajeState,
+        ensamblaje: {
+          ...initialEnsamblajeState,
+          lastUserCategorization: preservedCategorization, // Conservar categorización
+          lastSessionId: preservedSessionId, // Conservar sesión
+        },
       };
     
     case 'SET_RESPUESTAS_STATE':

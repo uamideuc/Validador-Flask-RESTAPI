@@ -115,26 +115,56 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   };
 
   const executeFileReset = (newFileData: any) => {
+    console.log('🔵 executeFileReset ejecutado');
+    console.log('🔍 savedCategorization actual:', savedCategorization);
+
+    // 🎯 CONSERVACIÓN: Guardar categorización antes de resetear
+    if (savedCategorization) {
+      // Extraer todas las variables de la categorización para matching
+      const allVariables: string[] = [];
+      Object.values(savedCategorization).forEach(varList => {
+        if (Array.isArray(varList)) {
+          allVariables.push(...varList);
+        }
+      });
+
+      const categorizationToSave = {
+        categorization: savedCategorization,
+        variables: allVariables,
+        timestamp: Date.now()
+      };
+
+      console.log('🎯 CONSERVACIÓN (File Reset): Guardando categorización antes de reset:', categorizationToSave);
+
+      // Guardar en contexto ANTES de resetear
+      setEnsamblajeState({ lastUserCategorization: categorizationToSave });
+    }
+
     // Reset selectivo preservando solo sesión (uploadId y filename ya están actualizados)
     const currentLastSessionId = ensamblajeState.lastSessionId;
-    
-    setEnsamblajeState({
-      activeStep: 0,
-      // NO preservar uploadId/filename - usar los ya actualizados del nuevo archivo
-      parseData: null,
-      validationResults: null,
-      validationSessionId: null,
-      savedCategorization: null,
-      currentCategorization: null,
-      hasCompletedValidation: false,
-      hasChangesAfterValidation: false,
-      hasTemporalChanges: false,
-      lastSessionId: currentLastSessionId,
-      error: '',
-      isLoading: false
-    });
-    
-    proceedWithNewFile(newFileData);
+
+    // 🚨 CRITICAL: Pequeño delay para asegurar que el guardado se procesa
+    setTimeout(() => {
+      console.log('🔄 Ejecutando reset de estado...');
+      setEnsamblajeState({
+        activeStep: 0,
+        // NO preservar uploadId/filename - usar los ya actualizados del nuevo archivo
+        parseData: null,
+        validationResults: null,
+        validationSessionId: null,
+        savedCategorization: null,
+        currentCategorization: null,
+        hasCompletedValidation: false,
+        hasChangesAfterValidation: false,
+        hasTemporalChanges: false,
+        lastSessionId: currentLastSessionId,
+        // lastUserCategorization se preserva automáticamente porque no lo estamos reseteando aquí
+        error: '',
+        isLoading: false
+      });
+
+      proceedWithNewFile(newFileData);
+    }, 100);
   };
 
   const proceedWithNewFile = (data: any) => {
@@ -280,10 +310,42 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
   };
 
   const handleProcessResetConfirm = () => {
-    // Ejecutar el reset completo
-    resetEnsamblajeState();
-    // Cerrar el modal
-    setShowProcessResetConfirmation(false);
+    console.log('🔵 handleProcessResetConfirm ejecutado');
+    console.log('🔍 savedCategorization actual:', savedCategorization);
+
+    // 🎯 CONSERVACIÓN: Guardar categorización antes de resetear
+    if (savedCategorization) {
+      // Extraer todas las variables de la categorización para matching
+      const allVariables: string[] = [];
+      Object.values(savedCategorization).forEach(varList => {
+        if (Array.isArray(varList)) {
+          allVariables.push(...varList);
+        }
+      });
+
+      const categorizationToSave = {
+        categorization: savedCategorization,
+        variables: allVariables,
+        timestamp: Date.now()
+      };
+
+      console.log('🎯 CONSERVACIÓN (Reset Proceso): Guardando categorización:', categorizationToSave);
+
+      // Guardar en contexto ANTES de resetear
+      setEnsamblajeState({ lastUserCategorization: categorizationToSave });
+
+      // 🚨 CRITICAL: Usar setTimeout para asegurar que el guardado se procesa primero
+      setTimeout(() => {
+        console.log('🔄 Ejecutando reset después de guardar...');
+        resetEnsamblajeState();
+        setShowProcessResetConfirmation(false);
+      }, 100);
+    } else {
+      // Si no hay categorización, resetear inmediatamente
+      console.log('❌ No hay categorización para guardar, reseteando directamente');
+      resetEnsamblajeState();
+      setShowProcessResetConfirmation(false);
+    }
   };
 
   const handleProcessResetCancel = () => {

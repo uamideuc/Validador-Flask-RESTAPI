@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Button, Tooltip } from '@mui/material';
-import { Visibility, VisibilityOff, RestartAlt, AutoAwesome } from '@mui/icons-material';
+import { Box, Button, Tooltip, Chip } from '@mui/material';
+import { Visibility, VisibilityOff, RestartAlt, AutoAwesome, History } from '@mui/icons-material';
 
 interface Variable {
   name: string;
@@ -18,6 +18,10 @@ interface CategorizationActionsProps {
   totalCategorized: number;
   onAutoCategorizationClick: () => void;
   onClearAllCategorization: () => void;
+  // 🎯 CONSERVACIÓN: Props para replicación de categorización
+  hasUserCategorization?: boolean;
+  userCategorizationMatchCount?: number;
+  onUserReplicationClick?: () => void;
 }
 
 interface CategoryActionsProps extends PreviewActionsProps, CategorizationActionsProps {}
@@ -48,7 +52,10 @@ export const CategorizationActions: React.FC<CategorizationActionsProps> = ({
   uncategorizedVariables,
   totalCategorized,
   onAutoCategorizationClick,
-  onClearAllCategorization
+  onClearAllCategorization,
+  hasUserCategorization = false,
+  userCategorizationMatchCount = 0,
+  onUserReplicationClick
 }) => {
   return (
     <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
@@ -64,7 +71,42 @@ export const CategorizationActions: React.FC<CategorizationActionsProps> = ({
           Autocategorizar
         </Button>
       </Tooltip>
-      
+
+      {/* 🎯 CONSERVACIÓN: Botón de replicación de categorización anterior */}
+      {hasUserCategorization && userCategorizationMatchCount > 0 && onUserReplicationClick && (
+        <Tooltip title="Aplicar la categorización que usaste anteriormente a las variables que coincidan">
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<History />}
+            onClick={onUserReplicationClick}
+            disabled={uncategorizedVariables.length === 0}
+            sx={{
+              minWidth: 180,
+              borderColor: '#9c27b0',
+              color: '#9c27b0',
+              '&:hover': {
+                borderColor: '#7b1fa2',
+                backgroundColor: 'rgba(156, 39, 176, 0.04)'
+              }
+            }}
+          >
+            Replicar Anterior
+            <Chip
+              label={userCategorizationMatchCount}
+              size="small"
+              sx={{
+                ml: 1,
+                height: 20,
+                backgroundColor: '#9c27b0',
+                color: 'white',
+                fontWeight: 600
+              }}
+            />
+          </Button>
+        </Tooltip>
+      )}
+
       <Tooltip title="Mover todas las variables categorizadas de vuelta a sin categorizar">
         <Button
           variant="outlined"
