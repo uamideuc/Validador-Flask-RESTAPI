@@ -18,15 +18,16 @@ import {
   AlertTitle,
   Box
 } from '@mui/material';
-import { History, Check } from '@mui/icons-material';
-import type { ReplicationProposal } from './UserCategorizationReplicator';
+import { History, Check, Warning } from '@mui/icons-material';
+import type { ReplicationProposal, NotFoundVariable } from './UserCategorizationReplicator';
 
 interface UserCategorizationReplicationDialogProps {
   open: boolean;
   proposals: ReplicationProposal[];
+  notFoundVariables?: NotFoundVariable[];
   matchCount: number;
-  unmatchedCount: number;
-  totalVariables: number;
+  notFoundCount: number;
+  totalSavedVariables: number;
   onAccept: () => void;
   onCancel: () => void;
 }
@@ -34,13 +35,20 @@ interface UserCategorizationReplicationDialogProps {
 const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicationDialogProps> = ({
   open,
   proposals,
+  notFoundVariables = [],
   matchCount,
-  unmatchedCount,
-  totalVariables,
+  notFoundCount,
+  totalSavedVariables,
   onAccept,
   onCancel
 }) => {
-  const matchPercentage = totalVariables > 0 ? Math.round((matchCount / totalVariables) * 100) : 0;
+  // Porcentaje = cuántas variables guardadas EXISTEN en el archivo (compatibilidad)
+  const matchPercentage = totalSavedVariables > 0
+    ? Math.round(((totalSavedVariables - notFoundCount) / totalSavedVariables) * 100)
+    : 0;
+
+  // Modo informativo: cuando ya no hay variables para categorizar pero hay info útil
+  const isInformativeMode = matchCount === 0 && notFoundCount > 0;
 
   return (
     <Dialog
@@ -61,7 +69,8 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
         gap: 2,
         background: 'linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%)',
         color: 'white',
-        borderBottom: 'none'
+        borderBottom: 'none',
+        mb: 3
       }}>
         <History sx={{ color: 'white' }} />
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -69,8 +78,8 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
         </Typography>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 4, pb: 3 }}>
-        {proposals.length > 0 ? (
+      <DialogContent sx={{ pt: 3, pb: 3 }}>
+        {totalSavedVariables > 0 ? (
           <>
             {/* Estadísticas de coincidencia */}
             <Box sx={{
@@ -80,14 +89,16 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
               justifyContent: 'center',
               flexWrap: 'wrap'
             }}>
-              <Chip
-                label={`${matchCount} coincidencias`}
-                color="success"
-                sx={{ fontWeight: 600, fontSize: '0.9rem' }}
-              />
-              {unmatchedCount > 0 && (
+              {matchCount > 0 && (
                 <Chip
-                  label={`${unmatchedCount} no coinciden`}
+                  label={`${matchCount} coincidencias`}
+                  color="success"
+                  sx={{ fontWeight: 600, fontSize: '0.9rem' }}
+                />
+              )}
+              {notFoundCount > 0 && (
+                <Chip
+                  label={`${notFoundCount} no encontrada${notFoundCount !== 1 ? 's' : ''}`}
                   color="warning"
                   variant="outlined"
                   sx={{ fontWeight: 600, fontSize: '0.9rem' }}
@@ -102,7 +113,15 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
             </Box>
 
             <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
-              Se encontraron <strong>{matchCount}</strong> variables que coinciden con tu categorización anterior:
+              {isInformativeMode ? (
+                <>
+                  Tu categorización anterior ha sido aplicada. Aquí está el resumen:
+                </>
+              ) : (
+                <>
+                  Se encontraron <strong>{matchCount}</strong> variable{matchCount !== 1 ? 's' : ''} que coincide{matchCount !== 1 ? 'n' : ''} con tu categorización anterior:
+                </>
+              )}
             </Typography>
 
             <TableContainer
@@ -125,6 +144,7 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
                   </TableRow>
                 </TableHead>
                 <TableBody>
+                  {/* Variables que coinciden (con ✓) */}
                   {proposals.map(({ variable, categoryTitle }) => (
                     <TableRow
                       key={variable.name}
@@ -135,7 +155,7 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
                           label={variable.name}
                           size="small"
                           variant="outlined"
-                          color="secondary"
+                          color="success"
                         />
                       </TableCell>
                       <TableCell>
@@ -146,23 +166,52 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
                       </TableCell>
                     </TableRow>
                   ))}
+
+                  {/* Variables guardadas que NO están en la base actual (con ⚠️) */}
+                  {notFoundVariables.map(({ name, categoryTitle }) => (
+                    <TableRow
+                      key={name}
+                      sx={{
+                        '&:hover': { backgroundColor: '#fff8e1' },
+                        backgroundColor: '#fffbf0'
+                      }}
+                    >
+                      <TableCell>
+                        <Chip
+                          label={name}
+                          size="small"
+                          variant="outlined"
+                          color="warning"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Warning sx={{ fontSize: 16, color: '#ff9800' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {categoryTitle}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </TableContainer>
 
-            <Alert severity="success" sx={{ mt: 3 }}>
-              <Typography variant="body2">
-                <strong>¿Deseas aplicar esta categorización?</strong><br />
-                Las columnas se moverán automáticamente a las categorías que tenían anteriormente.
-                Siempre puedes ajustar manualmente después si es necesario.
-              </Typography>
-            </Alert>
+            {!isInformativeMode && (
+              <Alert severity="success" sx={{ mt: 3 }}>
+                <Typography variant="body2">
+                  <strong>¿Deseas aplicar esta categorización?</strong><br />
+                  Las columnas se moverán automáticamente a las categorías que tenían anteriormente.
+                  Siempre puedes ajustar manualmente después si es necesario.
+                </Typography>
+              </Alert>
+            )}
 
-            {unmatchedCount > 0 && (
+            {notFoundCount > 0 && (
               <Alert severity="info" sx={{ mt: 2 }}>
-                <AlertTitle>Variables no coincidentes</AlertTitle>
-                {unmatchedCount} {unmatchedCount === 1 ? 'variable no coincide' : 'variables no coinciden'} con
-                la categorización anterior y deberán ser categorizadas manualmente.
+                <AlertTitle>Variables no encontradas</AlertTitle>
+                {notFoundCount} {notFoundCount === 1 ? 'variable' : 'variables'} de tu categorización anterior no {notFoundCount === 1 ? 'fue encontrada' : 'fueron encontradas'} en este archivo.
               </Alert>
             )}
           </>
@@ -170,7 +219,6 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
           <Alert severity="warning" sx={{ mb: 2 }}>
             <AlertTitle>No se encontraron coincidencias</AlertTitle>
             Las variables del archivo actual no coinciden con tu categorización anterior.
-            Deberás categorizar las columnas manualmente.
           </Alert>
         )}
       </DialogContent>
@@ -195,9 +243,9 @@ const UserCategorizationReplicationDialog: React.FC<UserCategorizationReplicatio
             }
           }}
         >
-          {proposals.length > 0 ? 'Cancelar' : 'Entendido'}
+          {isInformativeMode || totalSavedVariables === 0 ? 'Cerrar' : 'Cancelar'}
         </Button>
-        {proposals.length > 0 && (
+        {!isInformativeMode && matchCount > 0 && (
           <Button
             onClick={onAccept}
             variant="contained"

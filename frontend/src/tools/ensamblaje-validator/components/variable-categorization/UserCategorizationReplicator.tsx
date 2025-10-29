@@ -10,12 +10,19 @@ interface ReplicationProposal {
   source: 'user_previous'; // Diferenciador para styling
 }
 
+interface NotFoundVariable {
+  name: string;
+  categoryId: string;
+  categoryTitle: string;
+}
+
 export interface ReplicationResult {
   proposals: ReplicationProposal[];
   hasProposals: boolean;
   matchCount: number;
-  unmatchedCount: number;
-  totalVariables: number;
+  notFoundCount: number;
+  notFoundVariables: NotFoundVariable[];
+  totalSavedVariables: number;
 }
 
 /**
@@ -40,16 +47,19 @@ export const UserCategorizationReplicator = {
    * Genera propuestas de categorización basadas en una categorización previa
    *
    * @param lastCategorization - Categorización guardada del usuario
+   * @param allVariableNames - TODAS las variables del archivo actual (categorizadas + sin categorizar)
    * @param uncategorizedVariables - Variables actuales sin categorizar
    * @param categories - Definición de categorías disponibles
    * @returns Resultado con proposals y estadísticas
    */
   replicate(
     lastCategorization: any,
+    allVariableNames: string[],
     uncategorizedVariables: Variable[],
     categories: any[]
   ): ReplicationResult {
     const proposals: ReplicationProposal[] = [];
+    const notFoundVariables: NotFoundVariable[] = [];
 
     // Crear lookup inverso: variable name -> category ID
     const variableToCategoryMap: Record<string, string> = {};
@@ -62,7 +72,13 @@ export const UserCategorizationReplicator = {
       }
     });
 
-    // Generar proposals para variables que coinciden
+    // Crear Sets para lookup rápido
+    const allVariablesSet = new Set(allVariableNames);
+    const uncategorizedVariableNames = new Set(
+      uncategorizedVariables.map(v => v.name)
+    );
+
+    // Generar proposals para variables que coinciden (están sin categorizar)
     uncategorizedVariables.forEach(variable => {
       const categoryId = variableToCategoryMap[variable.name];
 
@@ -79,29 +95,62 @@ export const UserCategorizationReplicator = {
       }
     });
 
+    // Identificar variables guardadas que NO EXISTEN en el archivo actual
+    // (NO solo las que no están en uncategorized, sino las que NO existen en absoluto)
+    Object.entries(variableToCategoryMap).forEach(([varName, categoryId]) => {
+      if (!allVariablesSet.has(varName)) {
+        const category = categories.find(cat => cat.id === categoryId);
+        if (category) {
+          notFoundVariables.push({
+            name: varName,
+            categoryId,
+            categoryTitle: category.title
+          });
+        }
+      }
+    });
+
     const matchCount = proposals.length;
-    const totalVariables = uncategorizedVariables.length;
-    const unmatchedCount = totalVariables - matchCount;
+    const notFoundCount = notFoundVariables.length;
+    const totalSavedVariables = Object.keys(variableToCategoryMap).length;
 
     return {
       proposals,
       hasProposals: proposals.length > 0,
       matchCount,
-      unmatchedCount,
-      totalVariables
+      notFoundCount,
+      notFoundVariables,
+      totalSavedVariables
     };
   },
 
   /**
    * Calcula estadísticas de coincidencia sin generar proposals
    * Útil para mostrar indicadores en la UI antes de ejecutar la replicación
+   *
+   * @param lastCategorization - Categorización guardada del usuario
+   * @param allVariableNames - TODAS las variables del archivo actual (categorizadas + sin categorizar)
+   * @param uncategorizedVariableNames - Solo las variables sin categorizar
    */
   calculateMatches(
     lastCategorization: any,
-    currentVariables: string[]
-  ): { hasMatches: boolean; matchCount: number; totalVariables: number; matchPercentage: number } {
+    allVariableNames: string[],
+    uncategorizedVariableNames: string[]
+  ): {
+    hasMatches: boolean;
+    matchCount: number;
+    notFoundCount: number;
+    totalSavedVariables: number;
+    matchPercentage: number;
+  } {
     if (!lastCategorization) {
-      return { hasMatches: false, matchCount: 0, totalVariables: currentVariables.length, matchPercentage: 0 };
+      return {
+        hasMatches: false,
+        matchCount: 0,
+        notFoundCount: 0,
+        totalSavedVariables: 0,
+        matchPercentage: 0
+      };
     }
 
     // Extraer todas las variables de la categorización previa
@@ -112,19 +161,30 @@ export const UserCategorizationReplicator = {
       }
     });
 
-    // Calcular coincidencias
-    const matches = currentVariables.filter(v => lastVars.has(v));
-    const matchCount = matches.length;
-    const totalVariables = currentVariables.length;
-    const matchPercentage = totalVariables > 0 ? (matchCount / totalVariables) * 100 : 0;
+    // Crear Sets para lookup rápido
+    const allVariablesSet = new Set(allVariableNames);
+    const uncategorizedSet = new Set(uncategorizedVariableNames);
+
+    // Calcular matchCount: variables guardadas que están disponibles sin categorizar (puedo aplicarlas)
+    const matchCount = Array.from(lastVars).filter(v => uncategorizedSet.has(v)).length;
+
+    // Calcular notFoundCount: variables guardadas que NO EXISTEN en el archivo actual
+    const notFoundCount = Array.from(lastVars).filter(v => !allVariablesSet.has(v)).length;
+
+    const totalSavedVariables = lastVars.size;
+    // Porcentaje = cuántas variables guardadas EXISTEN en el archivo (compatibilidad)
+    const matchPercentage = totalSavedVariables > 0
+      ? ((totalSavedVariables - notFoundCount) / totalSavedVariables) * 100
+      : 0;
 
     return {
-      hasMatches: matchCount > 0,
+      hasMatches: matchCount > 0 || notFoundCount > 0,
       matchCount,
-      totalVariables,
+      notFoundCount,
+      totalSavedVariables,
       matchPercentage
     };
   }
 };
 
-export type { ReplicationProposal };
+export type { ReplicationProposal, NotFoundVariable };

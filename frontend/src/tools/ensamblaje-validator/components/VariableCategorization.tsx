@@ -166,11 +166,12 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   // 🎯 CONSERVACIÓN: Estado para replicación de categorización
   const [showUserReplicationDialog, setShowUserReplicationDialog] = useState(false);
   const [userReplicationProposals, setUserReplicationProposals] = useState<ReplicationProposal[]>([]);
+  const [userReplicationNotFoundVariables, setUserReplicationNotFoundVariables] = useState<any[]>([]);
   const [userReplicationStats, setUserReplicationStats] = useState<{
     matchCount: number;
-    unmatchedCount: number;
-    totalVariables: number;
-  }>({ matchCount: 0, unmatchedCount: 0, totalVariables: 0 });
+    notFoundCount: number;
+    totalSavedVariables: number;
+  }>({ matchCount: 0, notFoundCount: 0, totalSavedVariables: 0 });
 
   const [error, setError] = useState<string | null>(null);
 
@@ -181,21 +182,29 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const userCategorizationMatches = useMemo(() => {
     console.log('🔍 DEBUG: Calculando coincidencias...');
     console.log('🔍 lastUserCategorization:', ensamblajeState.lastUserCategorization);
-    console.log('🔍 Variables actuales:', variables);
+    console.log('🔍 All variables:', variables);
+    console.log('🔍 Uncategorized variables:', uncategorizedVariables.map(v => v.name));
 
     if (!ensamblajeState.lastUserCategorization) {
       console.log('❌ No hay categorización previa guardada');
-      return { hasMatches: false, matchCount: 0, totalVariables: variables.length, matchPercentage: 0 };
+      return {
+        hasMatches: false,
+        matchCount: 0,
+        notFoundCount: 0,
+        totalSavedVariables: 0,
+        matchPercentage: 0
+      };
     }
 
     const matches = UserCategorizationReplicator.calculateMatches(
       ensamblajeState.lastUserCategorization.categorization,
-      variables
+      variables, // TODAS las variables del archivo
+      uncategorizedVariables.map(v => v.name) // Solo las sin categorizar
     );
 
     console.log('✅ Coincidencias encontradas:', matches);
     return matches;
-  }, [ensamblajeState.lastUserCategorization, variables]);
+  }, [ensamblajeState.lastUserCategorization, variables, uncategorizedVariables]);
 
   // 🚨 CRÍTICO: Inicialización única para evitar loop infinito
   useEffect(() => {
@@ -420,19 +429,21 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
     const result = UserCategorizationReplicator.replicate(
       ensamblajeState.lastUserCategorization.categorization,
+      variables, // TODAS las variables del archivo actual
       uncategorizedVariables,
       CATEGORIES
     );
 
     setUserReplicationProposals(result.proposals);
+    setUserReplicationNotFoundVariables(result.notFoundVariables);
     setUserReplicationStats({
       matchCount: result.matchCount,
-      unmatchedCount: result.unmatchedCount,
-      totalVariables: result.totalVariables
+      notFoundCount: result.notFoundCount,
+      totalSavedVariables: result.totalSavedVariables
     });
     setShowUserReplicationDialog(true);
     setError(null);
-  }, [ensamblajeState.lastUserCategorization, uncategorizedVariables]);
+  }, [ensamblajeState.lastUserCategorization, variables, uncategorizedVariables]);
 
   const handleUserReplicationAccept = useCallback(() => {
     userReplicationProposals.forEach(({ variable, categoryId }) => {
@@ -441,14 +452,16 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
     setShowUserReplicationDialog(false);
     setUserReplicationProposals([]);
-    setUserReplicationStats({ matchCount: 0, unmatchedCount: 0, totalVariables: 0 });
+    setUserReplicationNotFoundVariables([]);
+    setUserReplicationStats({ matchCount: 0, notFoundCount: 0, totalSavedVariables: 0 });
     setError(null);
   }, [userReplicationProposals, handleDrop]);
 
   const handleUserReplicationCancel = useCallback(() => {
     setShowUserReplicationDialog(false);
     setUserReplicationProposals([]);
-    setUserReplicationStats({ matchCount: 0, unmatchedCount: 0, totalVariables: 0 });
+    setUserReplicationNotFoundVariables([]);
+    setUserReplicationStats({ matchCount: 0, notFoundCount: 0, totalSavedVariables: 0 });
   }, []);
 
   const handleClearAllCategorization = useCallback(() => {
@@ -659,9 +672,10 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         <UserCategorizationReplicationDialog
           open={showUserReplicationDialog}
           proposals={userReplicationProposals}
+          notFoundVariables={userReplicationNotFoundVariables}
           matchCount={userReplicationStats.matchCount}
-          unmatchedCount={userReplicationStats.unmatchedCount}
-          totalVariables={userReplicationStats.totalVariables}
+          notFoundCount={userReplicationStats.notFoundCount}
+          totalSavedVariables={userReplicationStats.totalSavedVariables}
           onAccept={handleUserReplicationAccept}
           onCancel={handleUserReplicationCancel}
         />
@@ -693,6 +707,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           onClearAllCategorization={handleClearAllCategorization}
           hasUserCategorization={userCategorizationMatches.hasMatches}
           userCategorizationMatchCount={userCategorizationMatches.matchCount}
+          userCategorizationNotFoundCount={userCategorizationMatches.notFoundCount}
           onUserReplicationClick={handleUserReplicationClick}
         />
 

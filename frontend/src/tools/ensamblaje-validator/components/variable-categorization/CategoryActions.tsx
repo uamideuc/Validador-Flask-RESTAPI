@@ -21,6 +21,7 @@ interface CategorizationActionsProps {
   // 🎯 CONSERVACIÓN: Props para replicación de categorización
   hasUserCategorization?: boolean;
   userCategorizationMatchCount?: number;
+  userCategorizationNotFoundCount?: number;
   onUserReplicationClick?: () => void;
 }
 
@@ -55,8 +56,23 @@ export const CategorizationActions: React.FC<CategorizationActionsProps> = ({
   onClearAllCategorization,
   hasUserCategorization = false,
   userCategorizationMatchCount = 0,
+  userCategorizationNotFoundCount = 0,
   onUserReplicationClick
 }) => {
+  // Determinar si el botón debe mostrarse
+  const showReplicationButton = hasUserCategorization &&
+    (userCategorizationMatchCount > 0 || userCategorizationNotFoundCount > 0) &&
+    onUserReplicationClick;
+
+  // Determinar qué badge mostrar
+  const badgeContent = userCategorizationMatchCount > 0
+    ? userCategorizationMatchCount
+    : '⚠️';
+
+  const badgeColor = userCategorizationMatchCount > 0
+    ? '#9c27b0'
+    : '#ff9800';  // Naranja para modo informativo
+
   return (
     <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
       <Tooltip title="Sugerir categorización automática basada en nombres comunes de columnas">
@@ -73,14 +89,13 @@ export const CategorizationActions: React.FC<CategorizationActionsProps> = ({
       </Tooltip>
 
       {/* 🎯 CONSERVACIÓN: Botón de replicación de categorización anterior */}
-      {hasUserCategorization && userCategorizationMatchCount > 0 && onUserReplicationClick && (
+      {showReplicationButton && (
         <Tooltip title="Aplicar la categorización que usaste anteriormente a las variables que coincidan">
           <Button
             variant="outlined"
             color="secondary"
             startIcon={<History />}
             onClick={onUserReplicationClick}
-            disabled={uncategorizedVariables.length === 0}
             sx={{
               minWidth: 180,
               borderColor: '#9c27b0',
@@ -93,12 +108,12 @@ export const CategorizationActions: React.FC<CategorizationActionsProps> = ({
           >
             Replicar Anterior
             <Chip
-              label={userCategorizationMatchCount}
+              label={badgeContent}
               size="small"
               sx={{
                 ml: 1,
                 height: 20,
-                backgroundColor: '#9c27b0',
+                backgroundColor: badgeColor,
                 color: 'white',
                 fontWeight: 600
               }}
