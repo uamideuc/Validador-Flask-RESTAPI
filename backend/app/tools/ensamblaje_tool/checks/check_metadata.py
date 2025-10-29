@@ -71,24 +71,27 @@ def _analyze_variable_by_instrument(data: pd.DataFrame, variable: str) -> Dict[s
     # Contar valores no nulos
     non_null_data = data[variable].dropna()
     value_counts = non_null_data.value_counts().to_dict()
-    
+
     # Contar valores faltantes
     missing_count = data[variable].isnull().sum()
     total_observations = len(data)
-    
+
+    # Convertir value_counts a strings para mantener consistencia de tipos
+    value_counts_str = {str(k): v for k, v in value_counts.items()}
+
     # Preparar distribución ordenada
     unique_values = smart_sort_values([str(val) for val in value_counts.keys()])
-    
+
     distribution = []
     for value in unique_values:
-        count = value_counts.get(value, 0)
+        count = value_counts_str.get(value, 0)
         percentage = (count / total_observations) * 100 if total_observations > 0 else 0
         distribution.append({
             'value': str(value),
             'count': int(count),
             'percentage': round(percentage, 1)
         })
-    
+
     return {
         'total_observations': total_observations,
         'unique_values_count': len(unique_values),
