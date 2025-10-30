@@ -10,6 +10,7 @@ from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font
 from ....core.models import VariableCategorization
+from ....core.services.file_handling.file_parser import FileParser
 
 
 # Colores de categorías (idénticos al frontend)
@@ -48,12 +49,10 @@ class ValidationExcelExporter:
             if isinstance(validation_results, str):
                 validation_results = json.loads(validation_results)
 
-            # Load original data from file
+            # Load original data from file using FileParser (handles CSV with any delimiter)
             original_file_path = validation_session['file_path']
-            if original_file_path.endswith('.csv'):
-                original_data = pd.read_csv(original_file_path)
-            else:
-                original_data = pd.read_excel(original_file_path)
+            parser = FileParser()
+            original_data = parser.parse_file(original_file_path)
 
             categorization_dict = validation_session['categorization']
             if isinstance(categorization_dict, str):

@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..core.services.security_service import require_session_ownership
 from ..core.database import DatabaseManager
 from ..core.models import VariableCategorization
+from ..core.services.file_handling.file_parser import FileParser
 from ..tools import get_toolkit, get_available_tools
 import pandas as pd
 import json
@@ -80,12 +81,10 @@ def run_tool_validation(tool_name):
                 'success': False,
                 'error': 'Archivo no encontrado'
             }), 404
-        
-        # Load file data
-        if file_path.endswith('.csv'):
-            data_df = pd.read_csv(file_path)
-        else:
-            data_df = pd.read_excel(file_path)
+
+        # Load file data using FileParser (handles CSV with any delimiter, Excel, encodings, etc.)
+        parser = FileParser()
+        data_df = parser.parse_file(file_path)
         
         # Parse categorization
         categorization_dict = validation_session['categorization']
@@ -164,20 +163,18 @@ def export_tool_data(tool_name):
                 'success': False,
                 'error': 'Sin permisos para acceder a esta sesión'
             }), 403
-        
-        # Load data
+
+        # Load data using FileParser (handles CSV with any delimiter, Excel, encodings, etc.)
         file_path = validation_session['file_path']
-        if file_path.endswith('.csv'):
-            data_df = pd.read_csv(file_path)
-        else:
-            data_df = pd.read_excel(file_path)
-        
+        parser = FileParser()
+        data_df = parser.parse_file(file_path)
+
         # Parse categorization
         categorization_dict = validation_session['categorization']
         if isinstance(categorization_dict, str):
             categorization_dict = json.loads(categorization_dict)
         categorization = VariableCategorization(**categorization_dict)
-        
+
         # Get and initialize toolkit
         toolkit = get_toolkit(tool_name, session_id)
         if not toolkit:
@@ -185,9 +182,9 @@ def export_tool_data(tool_name):
                 'success': False,
                 'error': f'Herramienta {tool_name} no encontrada'
             }), 404
-        
+
         toolkit.initialize(data_df, categorization)
-        
+
         # Execute export
         export_result = toolkit.export_data(export_type, validation_session_id)
         
@@ -261,20 +258,18 @@ def get_variable_values(tool_name):
                 'success': False,
                 'error': 'Sin permisos para acceder a esta sesión'
             }), 403
-        
-        # Load data
+
+        # Load data using FileParser (handles CSV with any delimiter, Excel, encodings, etc.)
         file_path = validation_session['file_path']
-        if file_path.endswith('.csv'):
-            data_df = pd.read_csv(file_path)
-        else:
-            data_df = pd.read_excel(file_path)
-        
+        parser = FileParser()
+        data_df = parser.parse_file(file_path)
+
         # Parse categorization
         categorization_dict = validation_session['categorization']
         if isinstance(categorization_dict, str):
             categorization_dict = json.loads(categorization_dict)
         categorization = VariableCategorization(**categorization_dict)
-        
+
         # Get and initialize toolkit
         toolkit = get_toolkit(tool_name, session_id)
         if not toolkit:
@@ -282,9 +277,9 @@ def get_variable_values(tool_name):
                 'success': False,
                 'error': f'Herramienta {tool_name} no encontrada'
             }), 404
-        
+
         toolkit.initialize(data_df, categorization)
-        
+
         # Get variable values using toolkit
         values_data = toolkit.get_variable_values(variable, instrument)
         

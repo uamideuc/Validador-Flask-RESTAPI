@@ -11,3 +11,4 @@ schedule==1.2.0
 numpy>=1.24.0
 reportlab==4.0.4
 gunicorn
+xlrd
