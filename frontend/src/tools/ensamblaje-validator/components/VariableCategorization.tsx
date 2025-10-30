@@ -385,8 +385,8 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       return newState;
     });
     
-    // Clear selection after drop
-    if (variablesToMove.length > 1) {
+    // Clear selection after drop if the dropped variable was part of the selection
+    if (selectedVariables.has(variable.name)) {
       clearSelection();
     }
   }, [selectedVariables, uncategorizedVariables, categorizedVariables, clearSelection]);
