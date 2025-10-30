@@ -7,7 +7,8 @@ import {
   Alert,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  CircularProgress
 } from '@mui/material';
 import { ExpandMore, Warning as WarningIcon } from '@mui/icons-material';
 import { DndProvider } from 'react-dnd';
@@ -735,14 +736,15 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           </Alert>
         )}
 
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
           <Button
             variant="contained"
             size="large"
             onClick={handleSaveCategorization}
-            disabled={totalCategorized === 0}
+            disabled={totalCategorized === 0 || ensamblajeState.isLoading}
+            startIcon={ensamblajeState.isLoading ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            Guardar Categorización y Continuar
+            {ensamblajeState.isLoading ? 'Guardando y validando...' : 'Guardar Categorización y Continuar'}
           </Button>
         </Box>
 

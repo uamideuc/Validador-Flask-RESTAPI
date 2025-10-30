@@ -470,11 +470,7 @@ const EnsamblajeValidator: React.FC<EnsamblajeValidatorProps> = ({ sessionId }) 
           </Alert>
         )}
 
-        {isLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-            <CircularProgress />
-          </Box>
-        )}
+        {/* Indicador de carga movido a los componentes hijos (cerca de los botones de acción) */}
 
         <Box sx={{ minHeight: 400 }}>
           {renderStepContent(activeStep)}

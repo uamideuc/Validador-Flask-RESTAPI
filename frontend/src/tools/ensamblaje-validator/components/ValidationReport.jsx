@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, Card, CardContent } from '@mui/material';
+import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, Card, CardContent, CircularProgress } from '@mui/material';
 import ClassificationValuesModal from './ClassificationValuesModal';
 import CriticalVariablesAnalysis from './CriticalVariablesAnalysis';
 import IdVariablesAnalysis from './IdVariablesAnalysis';
@@ -32,6 +32,16 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedVariable, setSelectedVariable] = useState(null);
   const [selectedInstrument, setSelectedInstrument] = useState(null);
+  const [loadingExport, setLoadingExport] = useState(null); // Track which export button is loading
+
+  const handleExport = async (exportType) => {
+    setLoadingExport(exportType);
+    try {
+      await onExport(exportType);
+    } finally {
+      setLoadingExport(null);
+    }
+  };
 
   if (!validationData) {
     return (
@@ -400,63 +410,84 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}>
-            <button 
-              onClick={() => onExport('validation_excel')}
+            <button
+              onClick={() => handleExport('validation_excel')}
+              disabled={loadingExport !== null}
               style={{
                 width: '100%',
                 padding: '12px 24px',
-                backgroundColor: '#4caf50',
+                backgroundColor: loadingExport === 'validation_excel' ? '#81c784' : '#4caf50',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                cursor: 'pointer',
+                cursor: loadingExport !== null ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                opacity: loadingExport !== null && loadingExport !== 'validation_excel' ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
               }}
             >
-              📋 Reporte de Validación (Excel)
+              {loadingExport === 'validation_excel' && <CircularProgress size={16} sx={{ color: 'white' }} />}
+              {loadingExport === 'validation_excel' ? 'Generando...' : '📋 Reporte de Validación (Excel)'}
             </button>
             <Typography variant="caption" display="block" sx={{ mt: 1, textAlign: 'center' }}>
               Base original con errores marcados
             </Typography>
           </Grid>
           <Grid item xs={12} md={4}>
-            <button 
-              onClick={() => onExport('validation_report_pdf')}
+            <button
+              onClick={() => handleExport('validation_report_pdf')}
+              disabled={loadingExport !== null}
               style={{
                 width: '100%',
                 padding: '12px 24px',
-                backgroundColor: '#f44336',
+                backgroundColor: loadingExport === 'validation_report_pdf' ? '#e57373' : '#f44336',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                cursor: 'pointer',
+                cursor: loadingExport !== null ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                opacity: loadingExport !== null && loadingExport !== 'validation_report_pdf' ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
               }}
             >
-              📄 Reporte de Validación (PDF)
+              {loadingExport === 'validation_report_pdf' && <CircularProgress size={16} sx={{ color: 'white' }} />}
+              {loadingExport === 'validation_report_pdf' ? 'Generando...' : '📄 Reporte de Validación (PDF)'}
             </button>
             <Typography variant="caption" display="block" sx={{ mt: 1, textAlign: 'center' }}>
               Reporte imprimible
             </Typography>
           </Grid>
           <Grid item xs={12} md={4}>
-            <button 
-              onClick={() => onExport('normalized_xlsx')}
+            <button
+              onClick={() => handleExport('normalized_xlsx')}
+              disabled={loadingExport !== null}
               style={{
                 width: '100%',
                 padding: '12px 24px',
-                backgroundColor: '#388e3c',
+                backgroundColor: loadingExport === 'normalized_xlsx' ? '#66bb6a' : '#388e3c',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                cursor: 'pointer',
+                cursor: loadingExport !== null ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                opacity: loadingExport !== null && loadingExport !== 'normalized_xlsx' ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
               }}
             >
-              📊 Datos Normalizados (Excel)
+              {loadingExport === 'normalized_xlsx' && <CircularProgress size={16} sx={{ color: 'white' }} />}
+              {loadingExport === 'normalized_xlsx' ? 'Generando...' : '📊 Datos Normalizados (Excel)'}
             </button>
             <Typography variant="caption" display="block" sx={{ mt: 1, textAlign: 'center' }}>
               Base con nombres estandarizados
