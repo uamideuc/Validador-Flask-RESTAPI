@@ -83,8 +83,9 @@ def run_tool_validation(tool_name):
             }), 404
 
         # Load file data using FileParser (handles CSV with any delimiter, Excel, encodings, etc.)
+        sheet_name = validation_session.get('sheet_name')  # Get sheet_name for Excel files
         parser = FileParser()
-        data_df = parser.parse_file(file_path)
+        data_df = parser.parse_file(file_path, sheet_name)
         
         # Parse categorization
         categorization_dict = validation_session['categorization']
@@ -166,8 +167,9 @@ def export_tool_data(tool_name):
 
         # Load data using FileParser (handles CSV with any delimiter, Excel, encodings, etc.)
         file_path = validation_session['file_path']
+        sheet_name = validation_session.get('sheet_name')  # Get sheet_name for Excel files
         parser = FileParser()
-        data_df = parser.parse_file(file_path)
+        data_df = parser.parse_file(file_path, sheet_name)
 
         # Parse categorization
         categorization_dict = validation_session['categorization']
@@ -261,8 +263,9 @@ def get_variable_values(tool_name):
 
         # Load data using FileParser (handles CSV with any delimiter, Excel, encodings, etc.)
         file_path = validation_session['file_path']
+        sheet_name = validation_session.get('sheet_name')  # Get sheet_name for Excel files
         parser = FileParser()
-        data_df = parser.parse_file(file_path)
+        data_df = parser.parse_file(file_path, sheet_name)
 
         # Parse categorization
         categorization_dict = validation_session['categorization']

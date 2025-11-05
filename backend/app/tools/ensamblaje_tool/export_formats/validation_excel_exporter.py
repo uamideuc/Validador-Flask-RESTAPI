@@ -51,8 +51,9 @@ class ValidationExcelExporter:
 
             # Load original data from file using FileParser (handles CSV with any delimiter)
             original_file_path = validation_session['file_path']
+            sheet_name = validation_session.get('sheet_name')  # Get sheet_name for Excel files
             parser = FileParser()
-            original_data = parser.parse_file(original_file_path)
+            original_data = parser.parse_file(original_file_path, sheet_name)
 
             categorization_dict = validation_session['categorization']
             if isinstance(categorization_dict, str):
@@ -164,6 +165,17 @@ class ValidationExcelExporter:
                     dup_indices = data[mask].index.tolist()
                     for idx in dup_indices:
                         problems[var][idx] = 'DUPLICADO'
+
+            # Detectar valores faltantes en item_id_vars (igual que metadata_vars)
+            missing_mask = data[var].isna()
+            missing_indices = data[missing_mask].index.tolist()
+
+            for idx in missing_indices:
+                # Si ya tiene un problema (ej: duplicado), combinar
+                if idx in problems[var]:
+                    problems[var][idx] = f"{problems[var][idx]}+VALOR_FALTANTE"
+                else:
+                    problems[var][idx] = 'VALOR_FALTANTE'
 
         # 2. Detectar valores faltantes en metadata_vars
         for var in categorization.metadata_vars:
