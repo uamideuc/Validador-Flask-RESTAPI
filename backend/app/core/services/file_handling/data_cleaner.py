@@ -17,16 +17,16 @@ class DataCleaner:
         Returns: (cleaned_df, cleaning_info)
         """
         cleaning_info = {}
-        
+
         # Handle unnamed columns
         df, unnamed_info = self._handle_unnamed_columns(df)
         cleaning_info['unnamed_columns'] = unnamed_info
-        
-        # Remove empty columns
-        original_cols = len(df.columns)
-        df = self._remove_empty_columns(df)
-        cleaning_info['empty_columns_removed'] = original_cols - len(df.columns)
-        
+
+        # Identify empty columns (but preserve them)
+        df, empty_columns_list = self._remove_empty_columns(df)
+        cleaning_info['empty_columns_found'] = empty_columns_list
+        cleaning_info['empty_columns_count'] = len(empty_columns_list)
+
         return df, cleaning_info
     
     def _handle_unnamed_columns(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
@@ -60,28 +60,29 @@ class DataCleaner:
         
         return df_copy, unnamed_columns_info
     
-    def _remove_empty_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _remove_empty_columns(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
         """
-        Remove columns that are completely empty or contain only whitespace
-        More sophisticated than dropna(axis=1, how='all')
+        Identify columns that are completely empty but DO NOT remove them.
+        This preserves the original structure so users can see all columns.
+        Returns: (DataFrame unchanged, list of empty column names)
         """
         df_copy = df.copy()
-        columns_to_remove = []
-        
+        empty_columns = []
+
         for col in df_copy.columns:
             # Get the column as string to handle mixed types
             col_series = df_copy[col].astype(str)
-            
+
             # Check if column is completely empty or only contains whitespace/null indicators
             is_empty = col_series.isna().all() or \
                       col_series.isin(['', ' ', 'nan', 'None', 'null', 'NaN', 'NULL']).all() or \
                       col_series.str.strip().eq('').all()
-            
+
             if is_empty:
-                columns_to_remove.append(col)
-        
-        if columns_to_remove:
-            print(f"🧹 Removing {len(columns_to_remove)} empty columns: {columns_to_remove}")
-            df_copy = df_copy.drop(columns=columns_to_remove)
-        
-        return df_copy
+                empty_columns.append(col)
+
+        if empty_columns:
+            print(f"⚠️  Found {len(empty_columns)} empty columns (preserved): {empty_columns}")
+
+        # Return DataFrame unchanged with list of empty columns
+        return df_copy, empty_columns
