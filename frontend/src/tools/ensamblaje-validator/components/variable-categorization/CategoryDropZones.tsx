@@ -141,6 +141,9 @@ const DropZone: React.FC<DropZoneProps> = ({ category, variables, onDrop, onRemo
     }),
   });
 
+  // Estado para controlar si ya se interactuó con el botón de opciones avanzadas
+  const [hasInteractedWithAdvanced, setHasInteractedWithAdvanced] = React.useState(false);
+
   const isActive = isOver && canDrop;
 
   return (
@@ -169,10 +172,30 @@ const DropZone: React.FC<DropZoneProps> = ({ category, variables, onDrop, onRemo
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
+                setHasInteractedWithAdvanced(true);
                 onOpenAdvancedOptions(category.id as 'item_id_vars' | 'metadata_vars');
               }}
+              onMouseEnter={() => setHasInteractedWithAdvanced(true)}
               disabled={variables.length === 0}
-              sx={{ ml: 'auto' }}
+              sx={{
+                ml: 'auto',
+                // Efecto de luz azul palpitante cuando NO hay opciones configuradas y NO se ha interactuado
+                ...(!hasAdvancedOptions && variables.length > 0 && !hasInteractedWithAdvanced && {
+                  animation: 'pulse-glow 2s ease-in-out infinite',
+                  '@keyframes pulse-glow': {
+                    '0%, 100%': {
+                      boxShadow: '0 0 5px rgba(25, 118, 210, 0.4), 0 0 10px rgba(25, 118, 210, 0.2)',
+                    },
+                    '50%': {
+                      boxShadow: '0 0 10px rgba(25, 118, 210, 0.8), 0 0 20px rgba(25, 118, 210, 0.4), 0 0 30px rgba(25, 118, 210, 0.2)',
+                    },
+                  },
+                }),
+                // Sombreado sutil permanente después de interactuar (sin animación)
+                ...(!hasAdvancedOptions && variables.length > 0 && hasInteractedWithAdvanced && {
+                  boxShadow: '0 0 5px rgba(25, 118, 210, 0.4), 0 0 10px rgba(25, 118, 210, 0.2)',
+                }),
+              }}
             >
               {hasAdvancedOptions ? (
                 <Badge color="primary" variant="dot">
