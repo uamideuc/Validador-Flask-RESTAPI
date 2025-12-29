@@ -489,3 +489,106 @@ def pre_validate_categorization(upload_id):
             'error': f'Error en pre-validación: {str(e)}',
             'error_code': 'PRE_VALIDATION_ERROR'
         }), 500
+
+@bp.route('/<int:upload_id>/detect-instruments', methods=['POST'])
+@require_session_ownership('upload')
+def detect_instruments(upload_id):
+    """
+    Detectar instrumentos en datos para configuración de opciones avanzadas
+    Pre-análisis que permite al usuario configurar constraints por instrumento específico
+    """
+    try:
+        # Get database manager
+        db = get_db_manager()
+
+        # Get upload record
+        upload_record = db.get_upload_record(upload_id)
+        if not upload_record:
+            return jsonify({
+                'success': False,
+                'error': 'Archivo no encontrado',
+                'error_code': 'FILE_NOT_FOUND'
+            }), 404
+
+        # Check if file still exists
+        if not os.path.exists(upload_record['file_path']):
+            return jsonify({
+                'success': False,
+                'error': 'Archivo no disponible en el servidor',
+                'error_code': 'FILE_NOT_AVAILABLE'
+            }), 404
+
+        # Get instrument_vars from request
+        if not request.is_json:
+            return jsonify({
+                'success': False,
+                'error': 'Se requiere contenido JSON',
+                'error_code': 'INVALID_CONTENT_TYPE'
+            }), 400
+
+        categorization_data = request.get_json()
+        instrument_vars = categorization_data.get('instrument_vars', [])
+
+        # Parse file using FileUploadService (consistente con otros endpoints)
+        file_service = FileUploadService(current_app.config['UPLOAD_FOLDER'])
+        parse_result = file_service.parse_file(upload_record['file_path'], upload_record.get('sheet_name'))
+
+        if not parse_result['success']:
+            return jsonify({
+                'success': False,
+                'error': 'Error al leer datos del archivo',
+                'error_code': 'PARSE_ERROR'
+            }), 500
+
+        data = parse_result['dataframe']
+
+        # If no instrument_vars, return single global instrument
+        if not instrument_vars:
+            return jsonify({
+                'success': True,
+                'instruments': [{
+                    'key': 'global',
+                    'displayName': 'Todos los instrumentos',
+                    'itemCount': len(data)
+                }]
+            })
+
+        # Agrupar por instrument_vars usando pandas groupby
+        instruments = []
+
+        try:
+            grouped = data.groupby(instrument_vars, dropna=False)
+
+            for name, group in grouped:
+                # Manejar tanto tuplas (múltiples vars) como valores simples (una var)
+                if isinstance(name, tuple):
+                    key = '|'.join([f"{var}:{val}" for var, val in zip(instrument_vars, name)])
+                    display = ' - '.join([f"{var}: {val}" for var, val in zip(instrument_vars, name)])
+                else:
+                    key = f"{instrument_vars[0]}:{name}"
+                    display = f"{instrument_vars[0]}: {name}"
+
+                instruments.append({
+                    'key': key,
+                    'displayName': display,
+                    'itemCount': len(group)
+                })
+
+            return jsonify({
+                'success': True,
+                'instruments': instruments
+            }), 200
+
+        except KeyError as e:
+            return jsonify({
+                'success': False,
+                'error': f'Variable de instrumento no encontrada: {str(e)}',
+                'error_code': 'INSTRUMENT_VAR_NOT_FOUND'
+            }), 400
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al detectar instrumentos: {str(e)}',
+            'error_code': 'DETECT_INSTRUMENTS_ERROR'
+        }), 500

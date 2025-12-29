@@ -7,12 +7,14 @@ from typing import Dict, Any
 from datetime import datetime
 from ...core.models import (
     VariableCategorization, ValidationReport, ValidationSummary,
-    InstrumentValidationResult, DuplicateValidationResult, MetadataValidationResult, ClassificationValidationResult
+    InstrumentValidationResult, DuplicateValidationResult, MetadataValidationResult, ClassificationValidationResult,
+    AdvancedConstraintsValidationResult  # NUEVO - 5ta validación
 )
 from .checks.check_instruments import validate_instruments_identification
 from ..common_checks.check_duplicates import validate_duplicates
 from .checks.check_metadata import validate_metadata_completeness
 from .checks.check_classification import analyze_classification_variables
+from .checks.check_advanced_constraints import validate_advanced_constraints  # NUEVO
 from .constants import SINGLE_INSTRUMENT_KEY
 
 class EnsamblajeValidator:
@@ -33,25 +35,28 @@ class EnsamblajeValidator:
         Generar reporte completo orquestando checks específicos
         """
         try:
-            # Ejecutar checks específicos (orquestación delgada) - 4 validaciones
+            # Ejecutar checks específicos (orquestación delgada) - 5 validaciones (la 5ta es opt-in)
             instrument_validation = validate_instruments_identification(data, categorization)
             duplicate_validation = validate_duplicates(data, categorization)
             metadata_validation = validate_metadata_completeness(data, categorization)
             classification_validation = analyze_classification_variables(data, categorization)
-            
-            # Determinar estado general de validación
+            advanced_validation = validate_advanced_constraints(data, categorization)  # NUEVO - opt-in
+
+            # Determinar estado general de validación (incluir advanced_validation)
             has_errors = (
                 not instrument_validation.is_valid or
                 not duplicate_validation.is_valid or
                 not metadata_validation.is_valid or
-                not classification_validation.is_valid
+                not classification_validation.is_valid or
+                not advanced_validation.is_valid  # NUEVO
             )
-            
+
             has_warnings = (
                 len(instrument_validation.warnings) > 0 or
                 len(duplicate_validation.warnings) > 0 or
                 len(metadata_validation.warnings) > 0 or
-                len(classification_validation.warnings) > 0
+                len(classification_validation.warnings) > 0 or
+                len(advanced_validation.warnings) > 0  # NUEVO
             )
             
             if has_errors:
@@ -71,13 +76,14 @@ class EnsamblajeValidator:
                 categorization=categorization
             )
             
-            # Crear reporte completo
+            # Crear reporte completo (incluir advanced_validation)
             report = ValidationReport(
                 summary=summary,
                 instrument_validation=instrument_validation,
                 duplicate_validation=duplicate_validation,
                 metadata_validation=metadata_validation,
                 classification_validation=classification_validation,
+                advanced_validation=advanced_validation,  # NUEVO
                 export_options=[
                     {
                         'type': 'normalized_xlsx',
@@ -116,7 +122,8 @@ class EnsamblajeValidator:
                 instrument_validation=InstrumentValidationResult(is_valid=False),
                 duplicate_validation=error_validation,
                 metadata_validation=MetadataValidationResult(is_valid=False),
-                classification_validation=ClassificationValidationResult(is_valid=False)
+                classification_validation=ClassificationValidationResult(is_valid=False),
+                advanced_validation=AdvancedConstraintsValidationResult(is_valid=False)  # NUEVO
             )
     
     def _get_instruments(self, data: pd.DataFrame, categorization: VariableCategorization) -> Dict[str, pd.DataFrame]:
