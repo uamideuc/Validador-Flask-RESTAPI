@@ -396,7 +396,7 @@ const AdvancedOptionsModal: React.FC<AdvancedOptionsModalProps> = ({
               {detectedInstruments.map(inst => (
                 <Chip
                   key={inst.key}
-                  label={`${inst.displayName} (${inst.itemCount} ítems)`}
+                  label={`${inst.displayName} (${inst.itemCount} filas)`}
                   size="small"
                   variant="outlined"
                 />
@@ -522,7 +522,7 @@ const AdvancedOptionsModal: React.FC<AdvancedOptionsModalProps> = ({
                       >
                         {detectedInstruments.map(inst => (
                           <option key={inst.key} value={inst.key}>
-                            {inst.displayName} ({inst.itemCount} ítems)
+                            {inst.displayName} ({inst.itemCount} filas)
                           </option>
                         ))}
                       </TextField>
