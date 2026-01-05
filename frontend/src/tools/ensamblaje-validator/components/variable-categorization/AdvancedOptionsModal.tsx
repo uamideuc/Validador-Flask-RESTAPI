@@ -375,7 +375,7 @@ const AdvancedOptionsModal: React.FC<AdvancedOptionsModalProps> = ({
       <DialogContent sx={{ mt: 2 }}>
         <Alert severity="info" sx={{ mb: 3 }}>
           {categoryType === 'item_id_vars'
-            ? 'Configure la cantidad exacta de ítems (filas) que debe tener cada instrumento. Las violaciones se reportarán en el resumen de validación.'
+            ? 'Configure la cantidad exacta de ítems (filas) que debe tener cada instrumento. Las inconsistencias se reportarán en el resumen de validación.'
             : 'Marque variables como "claves" y defina cuántos valores únicos deben tener y qué valores son válidos. Útil para verificar columnas como "Clave", "Respuesta Correcta", etc.'}
         </Alert>
 

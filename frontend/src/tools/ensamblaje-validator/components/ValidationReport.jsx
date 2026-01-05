@@ -81,7 +81,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
       case 'duplicates':
         return 'IDS PROBLEMÁTICOS';
       default:
-        return 'ERRORES ENCONTRADOS';
+        return 'PROBLEMAS ENCONTRADOS';
     }
   };
 
@@ -421,7 +421,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
               <Tune />
               <Typography variant="h6">Validación - Opciones Avanzadas</Typography>
               <Chip
-                label={advancedValidation.is_valid ? 'VÁLIDO' : 'ERRORES ENCONTRADOS'}
+                label={advancedValidation.is_valid ? 'VÁLIDO' : 'PROBLEMAS ENCONTRADOS'}
                 color={advancedValidation.is_valid ? 'success' : 'error'}
                 size="small"
                 sx={{ ml: 2 }}

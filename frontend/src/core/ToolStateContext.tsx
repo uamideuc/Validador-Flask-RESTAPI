@@ -12,6 +12,7 @@ export interface EnsamblajeState {
   validationSessionId: number | null;
   savedCategorization: any; // Estado validado y completado
   currentCategorization: any; // Estado temporal del drag-and-drop durante categorización
+  advancedOptions: any; // Opciones avanzadas de validación (preservadas al navegar)
   hasCompletedValidation: boolean;
   hasChangesAfterValidation: boolean; // Indica si hay cambios después de validar
   hasTemporalChanges: boolean; // 🎯 UX: Cambios temporales sin guardar post-validación
@@ -64,6 +65,7 @@ const initialEnsamblajeState: EnsamblajeState = {
   validationSessionId: null,
   savedCategorization: null,
   currentCategorization: null, // Estado temporal para drag-and-drop
+  advancedOptions: null, // Opciones avanzadas sin configurar inicialmente
   hasCompletedValidation: false,
   hasChangesAfterValidation: false, // Nuevo campo para cambios post-validación
   hasTemporalChanges: false, // 🎯 UX: Sin cambios temporales inicialmente
@@ -97,13 +99,15 @@ const toolsReducer = (state: ToolsState, action: ToolsAction): ToolsState => {
       };
     
     case 'RESET_ENSAMBLAJE_STATE':
-      // 🎯 CONSERVACIÓN: Preservar lastUserCategorization durante reset
+      // 🎯 CONSERVACIÓN: Preservar lastUserCategorization y advancedOptions durante reset
       const preservedCategorization = state.ensamblaje?.lastUserCategorization || null;
       const preservedSessionId = state.ensamblaje?.lastSessionId || null;
+      const preservedAdvancedOptions = state.ensamblaje?.advancedOptions || null;
 
       console.log('🔄 RESET_ENSAMBLAJE_STATE ejecutado');
       console.log('🔍 Categorización a preservar:', preservedCategorization);
       console.log('🔍 Session ID a preservar:', preservedSessionId);
+      console.log('🔍 Advanced Options a preservar:', preservedAdvancedOptions);
 
       return {
         ...state,
@@ -111,6 +115,7 @@ const toolsReducer = (state: ToolsState, action: ToolsAction): ToolsState => {
           ...initialEnsamblajeState,
           lastUserCategorization: preservedCategorization, // Conservar categorización
           lastSessionId: preservedSessionId, // Conservar sesión
+          advancedOptions: preservedAdvancedOptions, // Conservar opciones avanzadas
         },
       };
     

@@ -178,12 +178,24 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Estados para opciones avanzadas de validación
-  const [advancedOptions, setAdvancedOptions] = useState<AdvancedValidationOptions | null>(null);
+  // Inicializar desde el contexto global si existe (preservar al navegar)
+  const [advancedOptions, setAdvancedOptions] = useState<AdvancedValidationOptions | null>(
+    ensamblajeState.advancedOptions !== undefined ? ensamblajeState.advancedOptions : null
+  );
   const [showAdvancedModal, setShowAdvancedModal] = useState(false);
   const [advancedModalCategory, setAdvancedModalCategory] = useState<'item_id_vars' | 'metadata_vars' | null>(null);
 
   // Extract complex expression to avoid React Hook warning
   const sampleValuesLength = Object.keys(sampleValues).length;
+
+  // 💾 Sincronizar opciones avanzadas desde el contexto global (al navegar hacia atrás)
+  useEffect(() => {
+    if (ensamblajeState.advancedOptions !== undefined &&
+        JSON.stringify(ensamblajeState.advancedOptions) !== JSON.stringify(advancedOptions)) {
+      console.log('💾 Restaurando advancedOptions desde contexto:', ensamblajeState.advancedOptions);
+      setAdvancedOptions(ensamblajeState.advancedOptions);
+    }
+  }, [ensamblajeState.advancedOptions]);
 
   // 🎯 CONSERVACIÓN: Calcular coincidencias con categorización anterior
   const userCategorizationMatches = useMemo(() => {
@@ -483,9 +495,16 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       (options.item_count_constraints && options.item_count_constraints.length > 0) ||
       (options.key_variable_constraints && options.key_variable_constraints.length > 0);
 
-    setAdvancedOptions(hasConstraints ? options : null);
+    const newOptions = hasConstraints ? options : null;
+    setAdvancedOptions(newOptions);
+
+    // 💾 Guardar en el contexto global para preservar al navegar
+    setEnsamblajeState({
+      advancedOptions: newOptions
+    });
+
     setShowAdvancedModal(false);
-  }, []);
+  }, [setEnsamblajeState]);
 
   const handleClearAllCategorization = useCallback(() => {
     // Recolectar todas las variables de todas las categorías
