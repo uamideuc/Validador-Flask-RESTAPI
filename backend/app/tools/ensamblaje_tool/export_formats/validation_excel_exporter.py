@@ -75,10 +75,13 @@ class ValidationExcelExporter:
             temp_dir = tempfile.gettempdir()
             file_path = os.path.join(temp_dir, filename)
 
+            # Convertir TODAS las columnas a string para evitar notación científica
+            annotated_data_as_text = annotated_data.astype(str)
+
             # Write data to Excel
             with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                # Sheet 1: Datos originales con val_* columns
-                annotated_data.to_excel(writer, sheet_name='Datos_Validacion', index=False)
+                # Sheet 1: Datos originales con val_* columns (todo como texto)
+                annotated_data_as_text.to_excel(writer, sheet_name='Datos_Validacion', index=False)
 
                 # Sheet 2: Resumen validación (mejorado)
                 validation_summary = self._create_validation_summary_sheet(
@@ -88,10 +91,15 @@ class ValidationExcelExporter:
                 )
                 validation_summary.to_excel(writer, sheet_name='Resumen_Validacion', index=False)
 
+            # Sheet 3: Validaciones avanzadas (CONDICIONAL - escribir con openpyxl directamente)
+            advanced_validation = validation_results.get('advanced_validation', {})
+            if self._should_create_advanced_sheet(advanced_validation):
+                self._write_advanced_sheet_with_openpyxl(file_path, advanced_validation)
+
             # Apply cell and column formatting with openpyxl
             self._apply_excel_formatting(
                 file_path,
-                annotated_data,
+                annotated_data_as_text,
                 categorization,
                 cell_problems
             )
@@ -457,6 +465,216 @@ class ValidationExcelExporter:
 
         # Crear DataFrame con nombres de columnas explícitos
         return pd.DataFrame(summary_info, columns=['Métrica', 'Valor'])
+
+    def _should_create_advanced_sheet(self, advanced_validation: Dict[str, Any]) -> bool:
+        """
+        Determinar si se debe crear la hoja de validaciones avanzadas.
+        Solo se crea si hay constraints configurados (opt-in activo).
+        """
+        if not advanced_validation:
+            return False
+
+        validation_params = advanced_validation.get('validation_parameters', {})
+        has_item_constraints = validation_params.get('has_item_count_constraints', False)
+        has_key_constraints = validation_params.get('has_key_variable_constraints', False)
+
+        return has_item_constraints or has_key_constraints
+
+    def _write_advanced_sheet_with_openpyxl(self, file_path: str, advanced_validation: Dict[str, Any]):
+        """
+        Escribir hoja de validaciones avanzadas usando openpyxl directamente.
+        Esto evita problemas de interpretación de fórmulas por parte de Excel.
+        """
+        from openpyxl import load_workbook
+
+        # Cargar el workbook existente
+        wb = load_workbook(file_path)
+
+        # Crear nueva hoja
+        ws = wb.create_sheet('Validaciones_Avanzadas')
+
+        # Obtener datos como lista de listas
+        rows = []
+        rows.append(['VALIDACIONES AVANZADAS'])
+        rows.append([])
+
+        validation_params = advanced_validation.get('validation_parameters', {})
+
+        if validation_params.get('has_item_count_constraints', False):
+            rows.extend(self._build_item_count_section(advanced_validation))
+            rows.append([])
+
+        if validation_params.get('has_key_variable_constraints', False):
+            rows.extend(self._build_key_variables_section(advanced_validation))
+
+        # Escribir fila por fila, escapando valores que Excel pueda interpretar como fórmula
+        for row_idx, row_data in enumerate(rows, start=1):
+            # Si la fila está vacía, solo escribir una celda vacía
+            if not row_data:
+                cell = ws.cell(row=row_idx, column=1)
+                cell.value = ''
+                continue
+
+            for col_idx, value in enumerate(row_data, start=1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                # Forzar como string y agregar apóstrofe si empieza con =, +, -, @
+                if value and isinstance(value, str) and value[0] in ('=', '+', '-', '@'):
+                    cell.value = f"'{value}"
+                else:
+                    cell.value = str(value) if value else ''
+
+        # Guardar el workbook
+        wb.save(file_path)
+
+    def _create_advanced_validations_sheet(self, advanced_validation: Dict[str, Any]) -> pd.DataFrame:
+        """
+        Crear hoja de validaciones avanzadas con formato tabular.
+        Muestra solo las secciones relevantes según lo configurado.
+        """
+        rows = []
+
+        # Título
+        rows.append(['VALIDACIONES AVANZADAS', '', '', '', ''])
+        rows.append(['', '', '', '', ''])  # Línea en blanco
+
+        validation_params = advanced_validation.get('validation_parameters', {})
+
+        # === SECCIÓN 1: CONTEO DE ÍTEMS ===
+        if validation_params.get('has_item_count_constraints', False):
+            rows.extend(self._build_item_count_section(advanced_validation))
+            rows.append(['', '', '', '', ''])  # Separador
+
+        # === SECCIÓN 2: VARIABLES CLAVE ===
+        if validation_params.get('has_key_variable_constraints', False):
+            rows.extend(self._build_key_variables_section(advanced_validation))
+
+        # Crear DataFrame con 5 columnas consistentes
+        return pd.DataFrame(rows, columns=['Col1', 'Col2', 'Col3', 'Col4', 'Col5'])
+
+    def _build_item_count_section(self, advanced_validation: Dict[str, Any]) -> List[List[str]]:
+        """
+        Construir sección de validación de conteo de ítems.
+        """
+        rows = []
+
+        # Encabezado de sección
+        rows.append(['=== VALIDACIÓN DE CONTEO DE ÍTEMS ==='])
+        rows.append([])
+
+        # Errores de conteo
+        item_count_errors = advanced_validation.get('item_count_errors', [])
+        if item_count_errors:
+            rows.append(['ERRORES DETECTADOS'])
+            rows.append([])
+            rows.append(['Instrumento', 'Esperado', 'Encontrado', 'Diferencia'])
+
+            for error in item_count_errors:
+                context = error.get('context', {})
+                instrument_display = context.get('instrument', 'N/A').replace('|', ' - ')
+                expected = context.get('expected_count', 0)
+                actual = context.get('actual_count', 0)
+                diff = context.get('difference', 0)
+
+                rows.append([
+                    instrument_display,
+                    str(expected),
+                    str(actual),
+                    str(diff)
+                ])
+
+            rows.append([])
+
+        # Validaciones pasadas de conteo
+        item_count_passed = advanced_validation.get('item_count_passed', [])
+        if item_count_passed:
+            rows.append(['SIN PROBLEMAS DETECTADOS'])
+            rows.append([])
+            rows.append(['Instrumento', 'Esperado', 'Encontrado', 'Estado'])
+
+            for passed in item_count_passed:
+                instrument_display = passed.get('instrument_display', 'N/A')
+                expected = passed.get('expected_count', 0)
+                actual = passed.get('actual_count', 0)
+
+                rows.append([
+                    instrument_display,
+                    str(expected),
+                    str(actual),
+                    'Coincide con lo indicado'
+                ])
+
+        return rows
+
+    def _build_key_variables_section(self, advanced_validation: Dict[str, Any]) -> List[List[str]]:
+        """
+        Construir sección de validación de variables clave.
+        """
+        rows = []
+
+        # Encabezado de sección
+        rows.append(['=== VALIDACIÓN DE VARIABLES CLAVE ==='])
+        rows.append([])
+
+        # Errores de variables clave
+        key_variable_errors = advanced_validation.get('key_variable_errors', [])
+        if key_variable_errors:
+            rows.append(['ERRORES DETECTADOS'])
+            rows.append([])
+            rows.append(['Instrumento', 'Variable', 'Esperado', 'Encontrado', 'Detalles'])
+
+            for error in key_variable_errors:
+                context = error.get('context', {})
+                instrument = context.get('instrument', 'N/A').replace('|', ' - ')
+                variable = context.get('variable', 'N/A')
+                expected_count = context.get('expected_count', 0)
+                actual_count = context.get('actual_count', 0)
+
+                # Construir detalles de error
+                details = []
+                missing = context.get('missing_values', [])
+                unexpected = context.get('unexpected_values', [])
+
+                if missing:
+                    details.append(f"Faltantes: {', '.join(map(str, missing))}")
+                if unexpected:
+                    details.append(f"Inesperados: {', '.join(map(str, unexpected))}")
+
+                details_str = ' | '.join(details) if details else 'N/A'
+
+                rows.append([
+                    instrument,
+                    variable,
+                    str(expected_count),
+                    str(actual_count),
+                    details_str
+                ])
+
+            rows.append([])
+
+        # Validaciones pasadas de variables clave
+        key_variable_passed = advanced_validation.get('key_variable_passed', [])
+        if key_variable_passed:
+            rows.append(['SIN PROBLEMAS DETECTADOS'])
+            rows.append([])
+            rows.append(['Instrumento', 'Variable', 'Cardinalidad', 'Valores Esperados', 'Estado'])
+
+            for passed in key_variable_passed:
+                instrument_display = passed.get('instrument_display', 'N/A')
+                variable = passed.get('variable', 'N/A')
+                expected_count = passed.get('expected_count', 0)
+                expected_values = passed.get('expected_values', [])
+
+                values_str = ', '.join(map(str, expected_values)) if expected_values else 'N/A'
+
+                rows.append([
+                    instrument_display,
+                    variable,
+                    str(expected_count),
+                    values_str,
+                    'Coincide con lo indicado'
+                ])
+
+        return rows
 
     def _get_db_manager(self):
         """Get database manager instance"""
