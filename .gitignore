@@ -72,3 +72,9 @@ temp/
 # Legacy code moved during refactor
 Legacy/
 /frontend/src/dev/
+
+# Claude Code investigation/context artifacts (persistent between sessions, not shared)
+.claude-context/
+
+# Stray debug files from Claude Code sessions (this bash has no rm/del)
+/_*.txt

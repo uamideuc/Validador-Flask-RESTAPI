@@ -215,3 +215,200 @@ class ValidationReport:
     def to_json(self) -> str:
         """Convert to JSON string"""
         return json.dumps(self.to_dict(), indent=2, ensure_ascii=False)
+
+
+# ============================================================
+# Respuestas Validator Models
+# ============================================================
+
+@dataclass
+class RespuestasItemConfig:
+    """Configuration for a single response item (valid values + missing values)"""
+    variable: str
+    valid_values: List[Any] = field(default_factory=list)
+    missing_values: List[Any] = field(default_factory=list)
+    missing_includes_empty: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'variable': self.variable,
+            'valid_values': self.valid_values,
+            'missing_values': self.missing_values,
+            'missing_includes_empty': self.missing_includes_empty
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'RespuestasItemConfig':
+        return cls(
+            variable=data['variable'],
+            valid_values=data.get('valid_values', []),
+            missing_values=data.get('missing_values', []),
+            missing_includes_empty=data.get('missing_includes_empty', False)
+        )
+
+@dataclass
+class RespuestasCategorization:
+    """Categorization of variables for respuestas validation"""
+    participant_id_vars: List[str] = field(default_factory=list)
+    response_vars: List[str] = field(default_factory=list)
+    other_relevant_vars: List[str] = field(default_factory=list)
+    metadata_vars: List[str] = field(default_factory=list)
+    item_configs: List[RespuestasItemConfig] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'participant_id_vars': self.participant_id_vars,
+            'response_vars': self.response_vars,
+            'other_relevant_vars': self.other_relevant_vars,
+            'metadata_vars': self.metadata_vars,
+            'item_configs': [ic.to_dict() for ic in self.item_configs]
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'RespuestasCategorization':
+        item_configs = [
+            RespuestasItemConfig.from_dict(ic) if isinstance(ic, dict) else ic
+            for ic in data.get('item_configs', [])
+        ]
+        return cls(
+            participant_id_vars=data.get('participant_id_vars', []),
+            response_vars=data.get('response_vars', []),
+            other_relevant_vars=data.get('other_relevant_vars', []),
+            metadata_vars=data.get('metadata_vars', []),
+            item_configs=item_configs
+        )
+
+    def get_item_config(self, variable: str) -> Optional[RespuestasItemConfig]:
+        for ic in self.item_configs:
+            if ic.variable == variable:
+                return ic
+        return None
+
+@dataclass
+class RespuestasDuplicateValidationResult(ValidationResult):
+    """Duplicate validation with simple-dup vs clone distinction"""
+    simple_duplicates: List[Dict[str, Any]] = field(default_factory=list)
+    clone_duplicates: List[Dict[str, Any]] = field(default_factory=list)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'is_valid': self.is_valid,
+            'errors': [{'message': e.message, 'code': e.error_code, 'severity': e.severity, 'context': e.context} for e in self.errors],
+            'warnings': [{'message': w.message, 'code': w.warning_code, 'context': w.context} for w in self.warnings],
+            'statistics': self.statistics,
+            'simple_duplicates': self.simple_duplicates,
+            'clone_duplicates': self.clone_duplicates,
+            'validation_parameters': self.validation_parameters
+        }
+
+@dataclass
+class ResponseRangeValidationResult(ValidationResult):
+    """Results from response range validation (values vs valid values)"""
+    out_of_range_by_item: Dict[str, Any] = field(default_factory=dict)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'is_valid': self.is_valid,
+            'errors': [{'message': e.message, 'code': e.error_code, 'severity': e.severity, 'context': e.context} for e in self.errors],
+            'warnings': [{'message': w.message, 'code': w.warning_code, 'context': w.context} for w in self.warnings],
+            'statistics': self.statistics,
+            'out_of_range_by_item': self.out_of_range_by_item,
+            'validation_parameters': self.validation_parameters
+        }
+
+@dataclass
+class MissingPatternsValidationResult(ValidationResult):
+    """Results from missing patterns analysis"""
+    missing_by_item: Dict[str, Any] = field(default_factory=dict)
+    missing_by_participant: Dict[str, Any] = field(default_factory=dict)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'is_valid': self.is_valid,
+            'errors': [{'message': e.message, 'code': e.error_code, 'severity': e.severity, 'context': e.context} for e in self.errors],
+            'warnings': [{'message': w.message, 'code': w.warning_code, 'context': w.context} for w in self.warnings],
+            'statistics': self.statistics,
+            'missing_by_item': self.missing_by_item,
+            'missing_by_participant': self.missing_by_participant,
+            'validation_parameters': self.validation_parameters
+        }
+
+@dataclass
+class VariabilityValidationResult(ValidationResult):
+    """Results from variability (quasi-constant) check"""
+    quasi_constant_columns: List[Dict[str, Any]] = field(default_factory=list)
+    constant_columns: List[Dict[str, Any]] = field(default_factory=list)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'is_valid': self.is_valid,
+            'errors': [{'message': e.message, 'code': e.error_code, 'severity': e.severity, 'context': e.context} for e in self.errors],
+            'warnings': [{'message': w.message, 'code': w.warning_code, 'context': w.context} for w in self.warnings],
+            'statistics': self.statistics,
+            'quasi_constant_columns': self.quasi_constant_columns,
+            'constant_columns': self.constant_columns,
+            'validation_parameters': self.validation_parameters
+        }
+
+@dataclass
+class DuplicateNamesValidationResult(ValidationResult):
+    """Results from duplicate variable names check"""
+    duplicate_groups: List[Dict[str, Any]] = field(default_factory=list)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'is_valid': self.is_valid,
+            'errors': [{'message': e.message, 'code': e.error_code, 'severity': e.severity, 'context': e.context} for e in self.errors],
+            'warnings': [{'message': w.message, 'code': w.warning_code, 'context': w.context} for w in self.warnings],
+            'statistics': self.statistics,
+            'duplicate_groups': self.duplicate_groups,
+            'validation_parameters': self.validation_parameters
+        }
+
+@dataclass
+class IdenticalColumnsValidationResult(ValidationResult):
+    """Results from identical columns check"""
+    identical_pairs: List[Dict[str, Any]] = field(default_factory=list)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'is_valid': self.is_valid,
+            'errors': [{'message': e.message, 'code': e.error_code, 'severity': e.severity, 'context': e.context} for e in self.errors],
+            'warnings': [{'message': w.message, 'code': w.warning_code, 'context': w.context} for w in self.warnings],
+            'statistics': self.statistics,
+            'identical_pairs': self.identical_pairs,
+            'validation_parameters': self.validation_parameters
+        }
+
+@dataclass
+class RespuestasValidationReport:
+    """Complete validation report for respuestas"""
+    summary: ValidationSummary
+    duplicate_validation: RespuestasDuplicateValidationResult
+    response_range_validation: ResponseRangeValidationResult
+    missing_patterns_validation: MissingPatternsValidationResult
+    variability_validation: VariabilityValidationResult
+    duplicate_names_validation: DuplicateNamesValidationResult
+    identical_columns_validation: IdenticalColumnsValidationResult
+    export_options: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'summary': self.summary.to_dict(),
+            'duplicate_validation': self.duplicate_validation.to_dict(),
+            'response_range_validation': self.response_range_validation.to_dict(),
+            'missing_patterns_validation': self.missing_patterns_validation.to_dict(),
+            'variability_validation': self.variability_validation.to_dict(),
+            'duplicate_names_validation': self.duplicate_names_validation.to_dict(),
+            'identical_columns_validation': self.identical_columns_validation.to_dict(),
+            'export_options': self.export_options
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2, ensure_ascii=False)

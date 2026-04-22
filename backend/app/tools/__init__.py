@@ -2,6 +2,7 @@
 # Factory for dispatching to appropriate ToolKit implementations
 
 from .ensamblaje_tool import EnsamblajeToolKit
+from .respuestas_tool import RespuestasToolKit
 
 def get_toolkit(tool_name: str, session_id: str):
     """
@@ -9,6 +10,8 @@ def get_toolkit(tool_name: str, session_id: str):
     """
     if tool_name == 'ensamblaje':
         return EnsamblajeToolKit(session_id)
+    elif tool_name == 'respuestas':
+        return RespuestasToolKit(session_id)
     else:
         raise ValueError(f"ToolKit '{tool_name}' no encontrado")
 
@@ -20,7 +23,11 @@ def get_available_tools():
         'ensamblaje': {
             'name': 'Validador - Ensamblajes',
             'description': 'Herramienta para validación de bases de datos de ensamblaje'
+        },
+        'respuestas': {
+            'name': 'Validador - Respuestas',
+            'description': 'Herramienta para validación de bases de datos de respuestas'
         }
     }
 
-__all__ = ['EnsamblajeToolKit', 'get_toolkit', 'get_available_tools']
+__all__ = ['EnsamblajeToolKit', 'RespuestasToolKit', 'get_toolkit', 'get_available_tools']

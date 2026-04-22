@@ -25,10 +25,45 @@ export interface EnsamblajeState {
   isLoading: boolean;
 }
 
-// Define el estado específico de la herramienta de respuestas (placeholder)
+// Configuración por ítem para respuestas
+export interface RespuestasItemConfig {
+  variable: string;
+  valid_values: string[];
+  missing_values: string[];
+  missing_includes_empty: boolean;
+}
+
+// Estado del Libro de Códigos
+export interface LdCState {
+  uploadId: number | null;
+  filename: string | null;
+  mapping: {
+    name_column: string | null;
+    values_column: string | null;
+    missing_column: string | null;
+  };
+  parsed: boolean;
+  columns: string[];
+  autoDetected: boolean;
+}
+
+// Define el estado específico de la herramienta de respuestas
 export interface RespuestasState {
-  // Será definido cuando implementemos la herramienta
-  placeholder: boolean;
+  activeStep: number;
+  uploadId: number | null;
+  uploadedFilename: string | null;
+  parseData: any;
+  validationResults: any;
+  validationSessionId: number | null;
+  savedCategorization: any;
+  currentCategorization: any;
+  itemConfigs: RespuestasItemConfig[];
+  ldcState: LdCState | null;
+  hasCompletedValidation: boolean;
+  hasChangesAfterValidation: boolean;
+  lastSessionId: string | null;
+  error: string;
+  isLoading: boolean;
 }
 
 // Estado global de todas las herramientas
@@ -69,6 +104,25 @@ const initialEnsamblajeState: EnsamblajeState = {
   hasTemporalChanges: false, // 🎯 UX: Sin cambios temporales inicialmente
   lastSessionId: null, // 🚨 CRÍTICO: Tracking de sesión
   lastUserCategorization: null, // 🎯 CONSERVACIÓN: Sin categorización previa inicialmente
+  error: '',
+  isLoading: false,
+};
+
+// Estado inicial específico para respuestas
+const initialRespuestasState: RespuestasState = {
+  activeStep: 0,
+  uploadId: null,
+  uploadedFilename: null,
+  parseData: null,
+  validationResults: null,
+  validationSessionId: null,
+  savedCategorization: null,
+  currentCategorization: null,
+  itemConfigs: [],
+  ldcState: null,
+  hasCompletedValidation: false,
+  hasChangesAfterValidation: false,
+  lastSessionId: null,
   error: '',
   isLoading: false,
 };
@@ -118,15 +172,19 @@ const toolsReducer = (state: ToolsState, action: ToolsAction): ToolsState => {
       return {
         ...state,
         respuestas: {
-          ...(state.respuestas || { placeholder: true }),
+          ...(state.respuestas || initialRespuestasState),
           ...action.payload,
         },
       };
-    
+
     case 'RESET_RESPUESTAS_STATE':
+      const preservedRespuestasSessionId = state.respuestas?.lastSessionId || null;
       return {
         ...state,
-        respuestas: { placeholder: true },
+        respuestas: {
+          ...initialRespuestasState,
+          lastSessionId: preservedRespuestasSessionId,
+        },
       };
     
     case 'RESET_ALL_TOOLS':
@@ -195,7 +253,10 @@ export const ToolsProvider: React.FC<ToolsProviderProps> = ({ children }) => {
         return 'empty';
       
       case 'respuestas':
-        return 'construction'; // Placeholder - siempre en construcción
+        if (!state.respuestas) return 'empty';
+        if (state.respuestas.hasCompletedValidation) return 'completed';
+        if (state.respuestas.parseData || state.respuestas.uploadId) return 'in_progress';
+        return 'empty';
       
       default:
         return 'empty';
@@ -249,7 +310,7 @@ export const useRespuestasState = () => {
   };
   
   return {
-    respuestasState: state.respuestas || { placeholder: true },
+    respuestasState: state.respuestas || initialRespuestasState,
     setRespuestasState,
     resetRespuestasState,
   };

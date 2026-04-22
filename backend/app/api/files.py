@@ -386,15 +386,19 @@ def save_categorization(upload_id):
         
         categorization_data = request.get_json()
         
-        # Validate categorization data structure
-        required_fields = ['instrument_vars', 'item_id_vars', 'metadata_vars', 'classification_vars', 'other_vars']
-        for field in required_fields:
-            if field not in categorization_data:
-                return jsonify({
-                    'success': False,
-                    'error': f'Campo requerido faltante: {field}',
-                    'error_code': 'MISSING_FIELD'
-                }), 400
+        # Validate categorization data structure (support both ensamblaje and respuestas formats)
+        ensamblaje_fields = ['instrument_vars', 'item_id_vars', 'metadata_vars', 'classification_vars', 'other_vars']
+        respuestas_fields = ['participant_id_vars', 'response_vars', 'other_relevant_vars', 'metadata_vars']
+
+        is_ensamblaje = all(f in categorization_data for f in ensamblaje_fields)
+        is_respuestas = all(f in categorization_data for f in respuestas_fields)
+
+        if not is_ensamblaje and not is_respuestas:
+            return jsonify({
+                'success': False,
+                'error': 'Formato de categorización no reconocido. Faltan campos requeridos.',
+                'error_code': 'INVALID_CATEGORIZATION_FORMAT'
+            }), 400
         
         # Create validation session with categorization and current session
         validation_session_id = db.create_validation_session(upload_id, current_session_id, categorization_data)

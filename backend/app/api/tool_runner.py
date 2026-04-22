@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..core.services.security_service import require_session_ownership
 from ..core.database import DatabaseManager
-from ..core.models import VariableCategorization
+from ..core.models import VariableCategorization, RespuestasCategorization
 from ..core.services.file_handling.file_parser import FileParser
 from ..tools import get_toolkit, get_available_tools
 import pandas as pd
@@ -87,12 +87,16 @@ def run_tool_validation(tool_name):
         parser = FileParser()
         data_df = parser.parse_file(file_path, sheet_name)
         
-        # Parse categorization
+        # Parse categorization based on tool type
         categorization_dict = validation_session['categorization']
         if isinstance(categorization_dict, str):
             categorization_dict = json.loads(categorization_dict)
-        categorization = VariableCategorization(**categorization_dict)
-        
+
+        if tool_name == 'respuestas':
+            categorization = RespuestasCategorization.from_dict(categorization_dict)
+        else:
+            categorization = VariableCategorization(**categorization_dict)
+
         # Get and initialize toolkit
         toolkit = get_toolkit(tool_name, session_id)
         if not toolkit:
@@ -100,7 +104,7 @@ def run_tool_validation(tool_name):
                 'success': False,
                 'error': f'Herramienta {tool_name} no encontrada'
             }), 404
-        
+
         # Initialize toolkit
         init_result = toolkit.initialize(data_df, categorization)
         if not init_result['success']:
@@ -108,12 +112,15 @@ def run_tool_validation(tool_name):
                 'success': False,
                 'error': f'Error inicializando herramienta: {init_result.get("message", "Error desconocido")}'
             }), 500
-        
+
         # Run validation
         validation_report = toolkit.run_validation()
-        
+
         # Convert validation report to serializable dict
-        validation_report_dict = asdict(validation_report)
+        if hasattr(validation_report, 'to_dict'):
+            validation_report_dict = validation_report.to_dict()
+        else:
+            validation_report_dict = asdict(validation_report)
         
         # Save validation results to database
         db.update_validation_results(validation_session_id, validation_report_dict)
@@ -171,11 +178,15 @@ def export_tool_data(tool_name):
         parser = FileParser()
         data_df = parser.parse_file(file_path, sheet_name)
 
-        # Parse categorization
+        # Parse categorization based on tool type
         categorization_dict = validation_session['categorization']
         if isinstance(categorization_dict, str):
             categorization_dict = json.loads(categorization_dict)
-        categorization = VariableCategorization(**categorization_dict)
+
+        if tool_name == 'respuestas':
+            categorization = RespuestasCategorization.from_dict(categorization_dict)
+        else:
+            categorization = VariableCategorization(**categorization_dict)
 
         # Get and initialize toolkit
         toolkit = get_toolkit(tool_name, session_id)
@@ -267,11 +278,15 @@ def get_variable_values(tool_name):
         parser = FileParser()
         data_df = parser.parse_file(file_path, sheet_name)
 
-        # Parse categorization
+        # Parse categorization based on tool type
         categorization_dict = validation_session['categorization']
         if isinstance(categorization_dict, str):
             categorization_dict = json.loads(categorization_dict)
-        categorization = VariableCategorization(**categorization_dict)
+
+        if tool_name == 'respuestas':
+            categorization = RespuestasCategorization.from_dict(categorization_dict)
+        else:
+            categorization = VariableCategorization(**categorization_dict)
 
         # Get and initialize toolkit
         toolkit = get_toolkit(tool_name, session_id)

@@ -212,8 +212,8 @@ export class ApiService {
     return response.data;
   }
 
-  static async downloadExport(exportId: number, suggestedFilename?: string): Promise<void> {
-    const response = await axios.get(`/api/tools/ensamblaje/download/${exportId}`, {
+  static async downloadExport(exportId: number, suggestedFilename?: string, toolName: string = 'ensamblaje'): Promise<void> {
+    const response = await axios.get(`/api/tools/${toolName}/download/${exportId}`, {
       responseType: 'blob',
     });
 
