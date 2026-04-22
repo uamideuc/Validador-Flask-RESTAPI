@@ -5,6 +5,7 @@ import pandas as pd
 from typing import Dict, Any
 from ...core.models import RespuestasCategorization, RespuestasValidationReport
 from .validator import RespuestasValidator
+from .exporter import RespuestasExporter
 
 
 class RespuestasToolKit:
@@ -12,6 +13,7 @@ class RespuestasToolKit:
     def __init__(self, session_id: str):
         self.session_id = session_id
         self.validator = RespuestasValidator()
+        self.exporter = RespuestasExporter(session_id)
         self.data: pd.DataFrame = None
         self.categorization: RespuestasCategorization = None
 
@@ -34,11 +36,15 @@ class RespuestasToolKit:
         return self.validator.generate_comprehensive_report(self.data, self.categorization)
 
     def export_data(self, export_type: str, validation_session_id: int) -> Dict[str, Any]:
-        # TODO: Implement exporters (same pattern as ensamblaje)
-        return {
-            'success': False,
-            'error': f'Exportación "{export_type}" aún no implementada para respuestas'
-        }
+        if self.data is None or self.categorization is None:
+            raise ValueError("ToolKit no ha sido inicializado correctamente")
+
+        return self.exporter.export(
+            export_type=export_type,
+            data=self.data,
+            categorization=self.categorization,
+            validation_session_id=validation_session_id
+        )
 
     def get_variable_values(self, variable: str, **kwargs) -> Dict[str, Any]:
         if self.data is None or self.categorization is None:

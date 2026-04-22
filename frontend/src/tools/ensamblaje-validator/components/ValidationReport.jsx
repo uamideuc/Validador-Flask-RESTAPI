@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { Box, Typography, Paper, Alert, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, Card, CardContent, CircularProgress } from '@mui/material';
+import {
+  Box, Typography, Paper, Alert, AlertTitle, Accordion, AccordionSummary, AccordionDetails, Chip, Grid, Card, CardContent, CircularProgress,
+  Table, TableContainer, TableHead, TableRow, TableCell, TableBody
+} from '@mui/material';
+import { Tune } from '@mui/icons-material';
 import ClassificationValuesModal from './ClassificationValuesModal';
 import CriticalVariablesAnalysis from './CriticalVariablesAnalysis';
 import IdVariablesAnalysis from './IdVariablesAnalysis';
@@ -61,6 +65,7 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
   const duplicateValidation = validationData.duplicate_validation || {};
   const metadataValidation = validationData.metadata_validation || {};
   const classificationValidation = validationData.classification_validation || {};
+  const advancedValidation = validationData.advanced_validation || {};
 
   const getStatusColor = (isValid) => {
     return isValid ? 'success' : 'error';
@@ -402,6 +407,235 @@ const ValidationReport = ({ validationData, onExport, sessionId, validationSessi
           )}
         </AccordionDetails>
       </Accordion>
+
+      {/* Advanced Validation Options - Solo mostrar si hay constraints configurados */}
+      {(advancedValidation?.validation_parameters?.has_item_count_constraints ||
+        advancedValidation?.validation_parameters?.has_key_variable_constraints) && (
+        <Accordion
+          expanded={expandedSections.includes('advanced')}
+          onChange={() => handleSectionToggle('advanced')}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+              <Tune />
+              <Typography variant="h6">Validación - Opciones Avanzadas</Typography>
+              <Chip
+                label={advancedValidation.is_valid ? 'VÁLIDO' : 'ERRORES ENCONTRADOS'}
+                color={advancedValidation.is_valid ? 'success' : 'error'}
+                size="small"
+                sx={{ ml: 2 }}
+              />
+            </Box>
+          </AccordionSummary>
+
+          <AccordionDetails>
+            {/* Tabla de errores de conteo de ítems */}
+            {advancedValidation.item_count_errors && advancedValidation.item_count_errors.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                  Errores de Conteo de Ítems
+                </Typography>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ backgroundColor: 'primary.main' }}>
+                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Instrumento</TableCell>
+                        <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Esperado</TableCell>
+                        <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Encontrado</TableCell>
+                        <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Diferencia</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {advancedValidation.item_count_errors.map((v, idx) => (
+                        <TableRow key={idx} sx={{ '&:nth-of-type(odd)': { backgroundColor: 'grey.50' } }}>
+                          <TableCell>{getInstrumentDisplayName(v.context.instrument, instrumentValidation.instruments_detail)}</TableCell>
+                          <TableCell align="right">{v.context.expected_count}</TableCell>
+                          <TableCell align="right">{v.context.actual_count}</TableCell>
+                          <TableCell align="right">
+                            <Chip
+                              label={v.context.difference > 0 ? `+${v.context.difference}` : v.context.difference}
+                              color={v.context.difference === 0 ? 'success' : 'error'}
+                              size="small"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+
+            {/* Alerts de errores de variables de claves */}
+            {advancedValidation.key_variable_errors && advancedValidation.key_variable_errors.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                  Errores de Variables de Claves
+                </Typography>
+                {advancedValidation.key_variable_errors.map((v, idx) => (
+                  <Alert severity="error" key={idx} sx={{ mb: 1 }}>
+                    <AlertTitle>
+                      <strong>{v.context.variable}</strong> en {getInstrumentDisplayName(v.context.instrument, instrumentValidation.instruments_detail)}
+                    </AlertTitle>
+                    <Typography variant="body2" sx={{ mb: 2 }}>{v.message}</Typography>
+
+                    {/* Mostrar resumen de cardinalidad si aplica */}
+                    {v.context.expected_count !== null && v.context.expected_count !== undefined && (
+                      <Box sx={{ mb: 2, p: 1, backgroundColor: 'grey.100', borderRadius: 1 }}>
+                        <Typography variant="body2">
+                          Se esperaban {v.context.expected_count} valores únicos, se encontraron {v.context.actual_count}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {/* Mostrar valores esperados con estados */}
+                    {v.context.expected_values && v.context.expected_values.length > 0 && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 1 }}>
+                          Estado de valores esperados:
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {/* Valores que coinciden (verde) */}
+                          {v.context.matched_values && v.context.matched_values.map(val => (
+                            <Chip
+                              key={`matched-${val}`}
+                              label={val}
+                              size="small"
+                              sx={{
+                                backgroundColor: 'success.light',
+                                color: 'success.contrastText',
+                                fontWeight: 'bold'
+                              }}
+                            />
+                          ))}
+                          {/* Valores faltantes (rojo) */}
+                          {v.context.missing_values && v.context.missing_values.map(val => (
+                            <Chip
+                              key={`missing-${val}`}
+                              label={val}
+                              size="small"
+                              sx={{
+                                backgroundColor: 'error.light',
+                                color: 'error.contrastText',
+                                fontWeight: 'bold'
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* Valores inesperados (naranja) */}
+                    {v.context.unexpected_values && v.context.unexpected_values.length > 0 && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 1 }}>
+                          Valores inesperados encontrados:
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {v.context.unexpected_values.map(val => (
+                            <Chip
+                              key={`unexpected-${val}`}
+                              label={val}
+                              size="small"
+                              sx={{
+                                backgroundColor: 'warning.light',
+                                color: 'warning.contrastText',
+                                fontWeight: 'bold'
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+                  </Alert>
+                ))}
+              </Box>
+            )}
+
+            {/* Tabla de validaciones exitosas de conteo de ítems */}
+            {advancedValidation.item_count_passed && advancedValidation.item_count_passed.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                  Validaciones Exitosas de Conteo de Ítems
+                </Typography>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ backgroundColor: 'success.main' }}>
+                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Instrumento</TableCell>
+                        <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Esperado</TableCell>
+                        <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Encontrado</TableCell>
+                        <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Estado</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {advancedValidation.item_count_passed.map((v, idx) => (
+                        <TableRow key={idx} sx={{ '&:nth-of-type(odd)': { backgroundColor: 'success.50' } }}>
+                          <TableCell>{v.instrument_display || getInstrumentDisplayName(v.instrument, instrumentValidation.instruments_detail)}</TableCell>
+                          <TableCell align="right">{v.expected_count}</TableCell>
+                          <TableCell align="right">{v.actual_count}</TableCell>
+                          <TableCell align="center">
+                            <Chip label="OK" color="success" size="small" />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+
+            {/* Alerts de validaciones exitosas de variables de claves */}
+            {advancedValidation.key_variable_passed && advancedValidation.key_variable_passed.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                  Validaciones Exitosas de Variables de Claves
+                </Typography>
+                {advancedValidation.key_variable_passed.map((v, idx) => (
+                  <Alert severity="success" key={idx} sx={{ mb: 1 }}>
+                    <AlertTitle>
+                      <strong>{v.variable}</strong> en {v.instrument_display || getInstrumentDisplayName(v.instrument, instrumentValidation.instruments_detail)}
+                    </AlertTitle>
+                    {v.expected_count && (
+                      <Typography variant="body2">
+                        Cardinalidad: se esperaban {v.expected_count} valores únicos, se encontraron {v.actual_count}
+                      </Typography>
+                    )}
+                    {v.expected_values && v.expected_values.length > 0 && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="caption">Valores esperados:</Typography>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                          {v.expected_values.map(val => (
+                            <Chip key={val} label={val} size="small" color="success" variant="outlined" />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+                    {v.actual_values && v.actual_values.length > 0 && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="caption">Valores encontrados:</Typography>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                          {v.actual_values.map(val => (
+                            <Chip key={val} label={val} size="small" color="success" variant="filled" />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+                  </Alert>
+                ))}
+              </Box>
+            )}
+
+            {/* Mensaje de éxito general */}
+            {advancedValidation.is_valid && (
+              <Alert severity="success">
+                Todas las opciones avanzadas de validación se cumplieron exitosamente
+              </Alert>
+            )}
+          </AccordionDetails>
+        </Accordion>
+      )}
 
       {/* Export Options */}
       <Paper sx={{ p: 3, mt: 3 }}>

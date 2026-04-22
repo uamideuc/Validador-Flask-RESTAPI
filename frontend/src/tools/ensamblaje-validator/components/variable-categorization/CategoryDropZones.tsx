@@ -11,9 +11,12 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  IconButton,
+  Tooltip,
+  Badge
 } from '@mui/material';
-import { ExpandMore, DragIndicator, Category, Assignment, Info, Class } from '@mui/icons-material';
+import { ExpandMore, DragIndicator, Category, Assignment, Info, Class, Tune } from '@mui/icons-material';
 import { useDrag, useDrop } from 'react-dnd';
 
 interface Variable {
@@ -122,9 +125,11 @@ interface DropZoneProps {
   variables: Variable[];
   onDrop: (variable: Variable) => void;
   onRemove: (variable: Variable) => void;
+  onOpenAdvancedOptions?: (categoryType: 'item_id_vars' | 'metadata_vars') => void;
+  hasAdvancedOptions?: boolean;
 }
 
-const DropZone: React.FC<DropZoneProps> = ({ category, variables, onDrop, onRemove }) => {
+const DropZone: React.FC<DropZoneProps> = ({ category, variables, onDrop, onRemove, onOpenAdvancedOptions, hasAdvancedOptions }) => {
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemType,
     drop: (item: { variable: Variable }) => {
@@ -156,6 +161,29 @@ const DropZone: React.FC<DropZoneProps> = ({ category, variables, onDrop, onRemo
           {category.title}
         </Typography>
         <Chip label={variables.length} size="small" />
+
+        {/* Botón de opciones avanzadas (solo para item_id_vars y metadata_vars) */}
+        {(category.id === 'item_id_vars' || category.id === 'metadata_vars') && onOpenAdvancedOptions && (
+          <Tooltip title="Opciones avanzadas de validación">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenAdvancedOptions(category.id as 'item_id_vars' | 'metadata_vars');
+              }}
+              disabled={variables.length === 0}
+              sx={{ ml: 'auto' }}
+            >
+              {hasAdvancedOptions ? (
+                <Badge color="primary" variant="dot">
+                  <Tune fontSize="small" />
+                </Badge>
+              ) : (
+                <Tune fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
       
       <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -185,12 +213,16 @@ interface CategoryDropZonesProps {
   categorizedVariables: Record<string, Variable[]>;
   onDrop: (categoryId: string, variable: Variable) => void;
   onRemove: (categoryId: string, variable: Variable) => void;
+  onOpenAdvancedOptions?: (categoryType: 'item_id_vars' | 'metadata_vars') => void;
+  advancedOptionsConfigured?: { item_id_vars: boolean; metadata_vars: boolean };
 }
 
 const CategoryDropZones: React.FC<CategoryDropZonesProps> = ({
   categorizedVariables,
   onDrop,
-  onRemove
+  onRemove,
+  onOpenAdvancedOptions,
+  advancedOptionsConfigured
 }) => {
   return (
     <Box>
@@ -203,6 +235,12 @@ const CategoryDropZones: React.FC<CategoryDropZonesProps> = ({
               variables={categorizedVariables[category.id]}
               onDrop={(variable) => onDrop(category.id, variable)}
               onRemove={(variable) => onRemove(category.id, variable)}
+              onOpenAdvancedOptions={onOpenAdvancedOptions}
+              hasAdvancedOptions={
+                category.id === 'item_id_vars' ? advancedOptionsConfigured?.item_id_vars :
+                category.id === 'metadata_vars' ? advancedOptionsConfigured?.metadata_vars :
+                false
+              }
             />
           </Grid>
         ))}

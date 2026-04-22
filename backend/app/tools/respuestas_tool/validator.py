@@ -70,12 +70,7 @@ class RespuestasValidator:
                 identical_columns_validation=identical_columns_validation,
                 export_options=[
                     {
-                        'type': 'normalized_xlsx',
-                        'name': 'Datos Normalizados (Excel)',
-                        'description': 'Base de datos con nombres de variables estandarizados'
-                    },
-                    {
-                        'type': 'validation_report',
+                        'type': 'validation_report_pdf',
                         'name': 'Reporte de Validación (PDF)',
                         'description': 'Reporte completo de validaciones en formato PDF'
                     }

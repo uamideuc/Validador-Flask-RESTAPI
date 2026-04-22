@@ -23,7 +23,8 @@ import { AutoCategorizer, type AutoCategorizationProposal } from './variable-cat
 import AutoCategorizationDialog from './variable-categorization/AutoCategorizationDialog';
 import { UserCategorizationReplicator, type ReplicationProposal } from './variable-categorization/UserCategorizationReplicator';
 import UserCategorizationReplicationDialog from './variable-categorization/UserCategorizationReplicationDialog';
-import ApiService from '../../../core/api';
+import AdvancedOptionsModal from './variable-categorization/AdvancedOptionsModal';
+import ApiService, { AdvancedValidationOptions } from '../../../core/api';
 import { useEnsamblajeState } from '../../../core/ToolStateContext';
 
 interface Variable {
@@ -176,8 +177,26 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
   const [error, setError] = useState<string | null>(null);
 
+  // Estados para opciones avanzadas de validación
+  const [advancedOptions, setAdvancedOptions] = useState<AdvancedValidationOptions | null>(
+    ensamblajeState.advancedOptions !== undefined ? ensamblajeState.advancedOptions : null
+  );
+  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
+  const [advancedModalCategory, setAdvancedModalCategory] = useState<'item_id_vars' | 'metadata_vars' | null>(null);
+
   // Extract complex expression to avoid React Hook warning
   const sampleValuesLength = Object.keys(sampleValues).length;
+
+  // Restaurar opciones avanzadas desde el contexto global al navegar
+  useEffect(() => {
+    if (
+      ensamblajeState.advancedOptions !== undefined &&
+      JSON.stringify(ensamblajeState.advancedOptions) !== JSON.stringify(advancedOptions)
+    ) {
+      console.log('💾 Restaurando advancedOptions desde contexto:', ensamblajeState.advancedOptions);
+      setAdvancedOptions(ensamblajeState.advancedOptions);
+    }
+  }, [ensamblajeState.advancedOptions, advancedOptions]);
 
   // 🎯 CONSERVACIÓN: Calcular coincidencias con categorización anterior
   const userCategorizationMatches = useMemo(() => {
@@ -465,6 +484,26 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     setUserReplicationStats({ matchCount: 0, notFoundCount: 0, totalSavedVariables: 0 });
   }, []);
 
+  // Handlers para opciones avanzadas
+  const handleOpenAdvancedOptions = useCallback((categoryType: 'item_id_vars' | 'metadata_vars') => {
+    setAdvancedModalCategory(categoryType);
+    setShowAdvancedModal(true);
+  }, []);
+
+  const handleSaveAdvancedOptions = useCallback((options: AdvancedValidationOptions) => {
+    // Solo guardar si hay constraints configurados, de lo contrario limpiar
+    const hasConstraints =
+      (options.item_count_constraints && options.item_count_constraints.length > 0) ||
+      (options.key_variable_constraints && options.key_variable_constraints.length > 0);
+
+    const newOptions = hasConstraints ? options : null;
+    setAdvancedOptions(newOptions);
+    setEnsamblajeState({
+      advancedOptions: newOptions
+    });
+    setShowAdvancedModal(false);
+  }, [setEnsamblajeState]);
+
   const handleClearAllCategorization = useCallback(() => {
     // Recolectar todas las variables de todas las categorías
     const allCategorizedVars: Variable[] = [];
@@ -542,6 +581,8 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         ...categorizedVariables.other_vars.map(v => v.name),
         ...uncategorizedVariables.map(v => v.name)
       ],
+      // Incluir opciones avanzadas si están configuradas (opt-in)
+      ...(advancedOptions && { advanced_options: advancedOptions })
     };
 
     // 🚨 PRE-VALIDACIÓN: Verificar valores faltantes en identificación
@@ -567,13 +608,13 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
     console.log('Sending categorization to backend:', categorizationData);
     console.log('UI state preserved - uncategorized count:', uncategorizedVariables.length);
-    
+
     // 🎯 UX: Limpiar estado temporal ya que se procede con nueva validación
     setEnsamblajeState({
       currentCategorization: null,
       hasTemporalChanges: false // Reset indicador visual
     });
-    
+
     onCategorization(categorizationData);
   };
 
@@ -681,6 +722,20 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           onCancel={handleUserReplicationCancel}
         />
 
+        {/* Advanced Validation Options Modal */}
+        {showAdvancedModal && advancedModalCategory && (
+          <AdvancedOptionsModal
+            open={showAdvancedModal}
+            onClose={() => setShowAdvancedModal(false)}
+            onSave={handleSaveAdvancedOptions}
+            categoryType={advancedModalCategory}
+            availableVariables={categorizedVariables[advancedModalCategory].map(v => v.name)}
+            currentOptions={advancedOptions || undefined}
+            instrumentVariables={categorizedVariables.instrument_vars.map(v => v.name)}
+            uploadId={uploadId}
+          />
+        )}
+
         {/* Data Preview Component */}
         {showPreview && (
           <Box sx={{ mb: 3 }}>
@@ -717,6 +772,11 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           categorizedVariables={categorizedVariables}
           onDrop={handleDrop}
           onRemove={handleRemove}
+          onOpenAdvancedOptions={handleOpenAdvancedOptions}
+          advancedOptionsConfigured={{
+            item_id_vars: (advancedOptions?.item_count_constraints?.length ?? 0) > 0,
+            metadata_vars: (advancedOptions?.key_variable_constraints?.length ?? 0) > 0
+          }}
         />
 
         {/* Mostrar alerta si hay cambios después de validación */}

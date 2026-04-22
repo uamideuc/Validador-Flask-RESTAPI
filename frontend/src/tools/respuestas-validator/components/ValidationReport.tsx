@@ -99,6 +99,17 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
   onExport,
   isLoading
 }) => {
+  const [loadingExport, setLoadingExport] = useState<string | null>(null);
+
+  const handleExport = async (exportType: string) => {
+    setLoadingExport(exportType);
+    try {
+      await onExport(exportType);
+    } finally {
+      setLoadingExport(null);
+    }
+  };
+
   if (!validationData) return null;
 
   const summary = validationData.summary;
@@ -108,6 +119,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
   const varResult = validationData.variability_validation;
   const dupNamesResult = validationData.duplicate_names_validation;
   const identicalResult = validationData.identical_columns_validation;
+  const exportOptions = validationData.export_options || [];
 
   return (
     <Box>
@@ -381,23 +393,23 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
       <Paper sx={{ p: 3, mt: 3 }}>
         <Typography variant="h6" gutterBottom>Exportar Resultados</Typography>
         <Box display="flex" gap={2} flexWrap="wrap">
-          <Button
-            variant="contained"
-            startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <Download />}
-            onClick={() => onExport('normalized_xlsx')}
-            disabled={isLoading}
-          >
-            Datos Normalizados (Excel)
-          </Button>
-          <Button
-            variant="contained"
-            color="secondary"
-            startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <Download />}
-            onClick={() => onExport('validation_report_pdf')}
-            disabled={isLoading}
-          >
-            Reporte de Validación (PDF)
-          </Button>
+          {exportOptions.map((option: any) => {
+            const active = loadingExport === option.type;
+            const disabled = loadingExport !== null || !!isLoading;
+
+            return (
+              <Button
+                key={option.type}
+                variant="contained"
+                color={option.type === 'validation_report_pdf' ? 'secondary' : 'primary'}
+                startIcon={active ? <CircularProgress size={20} color="inherit" /> : <Download />}
+                onClick={() => handleExport(option.type)}
+                disabled={disabled}
+              >
+                {active ? 'Generando...' : option.name}
+              </Button>
+            );
+          })}
         </Box>
       </Paper>
     </Box>

@@ -15,6 +15,56 @@ class VariableCategory(Enum):
     OTHER = 'other'
 
 @dataclass
+class ItemCountConstraint:
+    """Constraint sobre el número esperado de ítems por instrumento"""
+    expected_count: int
+    scope: str  # 'global' o clave de instrumento específico (ej: "Forma:A|Año:2023")
+
+@dataclass
+class KeyVariableConstraint:
+    """Constraint para validación de variables de claves (cardinalidad + valores)"""
+    variable_name: str
+    expected_key_count: int
+    expected_values: List[str]  # Valores permitidos (ej: ["A", "B", "C", "D"])
+    scope: str  # 'global' o clave de instrumento específico
+
+@dataclass
+class AdvancedValidationOptions:
+    """Opciones avanzadas de validación (OPT-IN)"""
+    item_count_constraints: List[ItemCountConstraint] = field(default_factory=list)
+    key_variable_constraints: List[KeyVariableConstraint] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'item_count_constraints': [
+                {'expected_count': c.expected_count, 'scope': c.scope}
+                for c in self.item_count_constraints
+            ],
+            'key_variable_constraints': [
+                {
+                    'variable_name': c.variable_name,
+                    'expected_key_count': c.expected_key_count,
+                    'expected_values': c.expected_values,
+                    'scope': c.scope
+                }
+                for c in self.key_variable_constraints
+            ]
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'AdvancedValidationOptions':
+        return cls(
+            item_count_constraints=[
+                ItemCountConstraint(**c)
+                for c in data.get('item_count_constraints', [])
+            ],
+            key_variable_constraints=[
+                KeyVariableConstraint(**c)
+                for c in data.get('key_variable_constraints', [])
+            ]
+        )
+
+@dataclass
 class VariableCategorization:
     """Categorization of variables by type"""
     instrument_vars: List[str] = field(default_factory=list)
@@ -22,26 +72,35 @@ class VariableCategorization:
     metadata_vars: List[str] = field(default_factory=list)
     classification_vars: List[str] = field(default_factory=list)
     other_vars: List[str] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict[str, List[str]]:
+    advanced_options: Optional[AdvancedValidationOptions] = None  # NUEVO - OPT-IN
+
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
-        return {
+        result = {
             'instrument_vars': self.instrument_vars,
             'item_id_vars': self.item_id_vars,
             'metadata_vars': self.metadata_vars,
             'classification_vars': self.classification_vars,
             'other_vars': self.other_vars
         }
-    
+        if self.advanced_options:
+            result['advanced_options'] = self.advanced_options.to_dict()
+        return result
+
     @classmethod
-    def from_dict(cls, data: Dict[str, List[str]]) -> 'VariableCategorization':
+    def from_dict(cls, data: Dict[str, Any]) -> 'VariableCategorization':
         """Create from dictionary"""
+        advanced_opts = None
+        if 'advanced_options' in data and data['advanced_options']:
+            advanced_opts = AdvancedValidationOptions.from_dict(data['advanced_options'])
+
         return cls(
             instrument_vars=data.get('instrument_vars', []),
             item_id_vars=data.get('item_id_vars', []),
             metadata_vars=data.get('metadata_vars', []),
             classification_vars=data.get('classification_vars', []),
-            other_vars=data.get('other_vars', [])
+            other_vars=data.get('other_vars', []),
+            advanced_options=advanced_opts
         )
 
 @dataclass
@@ -154,6 +213,29 @@ class ClassificationValidationResult(ValidationResult):
         }
 
 @dataclass
+class AdvancedConstraintsValidationResult(ValidationResult):
+    """Resultado de validación de constraints avanzados (5ta validación, opt-in)"""
+    item_count_errors: List[Dict[str, Any]] = field(default_factory=list)
+    key_variable_errors: List[Dict[str, Any]] = field(default_factory=list)
+    item_count_passed: List[Dict[str, Any]] = field(default_factory=list)
+    key_variable_passed: List[Dict[str, Any]] = field(default_factory=list)
+    validation_parameters: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            'is_valid': self.is_valid,
+            'errors': [{'message': e.message, 'code': e.error_code, 'severity': e.severity, 'context': e.context} for e in self.errors],
+            'warnings': [{'message': w.message, 'code': w.warning_code, 'context': w.context} for w in self.warnings],
+            'statistics': self.statistics,
+            'item_count_errors': self.item_count_errors,
+            'key_variable_errors': self.key_variable_errors,
+            'item_count_passed': self.item_count_passed,
+            'key_variable_passed': self.key_variable_passed,
+            'validation_parameters': self.validation_parameters
+        }
+
+@dataclass
 class ValidationSummary:
     """Summary of all validation results"""
     total_items: int
@@ -199,8 +281,9 @@ class ValidationReport:
     duplicate_validation: DuplicateValidationResult
     metadata_validation: MetadataValidationResult
     classification_validation: ClassificationValidationResult
+    advanced_validation: AdvancedConstraintsValidationResult  # NUEVO - 5ta validación (opt-in)
     export_options: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         return {
@@ -209,6 +292,7 @@ class ValidationReport:
             'duplicate_validation': self.duplicate_validation.to_dict(),
             'metadata_validation': self.metadata_validation.to_dict(),
             'classification_validation': self.classification_validation.to_dict(),
+            'advanced_validation': self.advanced_validation.to_dict(),  # NUEVO
             'export_options': self.export_options
         }
     

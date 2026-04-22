@@ -75,12 +75,30 @@ export interface ParseResponse {
   sheet_name?: string;
 }
 
+export interface ItemCountConstraint {
+  expected_count: number;
+  scope: string; // 'global' | instrument key
+}
+
+export interface KeyVariableConstraint {
+  variable_name: string;
+  expected_key_count: number;
+  expected_values: string[];
+  scope: string; // 'global' | instrument key
+}
+
+export interface AdvancedValidationOptions {
+  item_count_constraints: ItemCountConstraint[];
+  key_variable_constraints: KeyVariableConstraint[];
+}
+
 export interface VariableCategorization {
   instrument_vars: string[];
   item_id_vars: string[];
   metadata_vars: string[];
   classification_vars: string[];
   other_vars: string[];
+  advanced_options?: AdvancedValidationOptions; // NUEVO - Opcional (opt-in)
 }
 
 export interface ValidationResponse {
@@ -89,6 +107,17 @@ export interface ValidationResponse {
   validation_session_id: number;
   categorization: VariableCategorization;
   message: string;
+}
+
+export interface DetectedInstrument {
+  key: string;
+  displayName: string;
+  itemCount: number;
+}
+
+export interface DetectInstrumentsResponse {
+  success: boolean;
+  instruments: DetectedInstrument[];
 }
 
 export class ApiService {
@@ -135,6 +164,16 @@ export class ApiService {
 
   static async saveCategorization(uploadId: number, categorization: VariableCategorization): Promise<ValidationResponse> {
     const response = await axios.post(`/api/files/${uploadId}/categorization`, categorization, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
+  }
+
+  static async detectInstruments(uploadId: number, categorization: Partial<VariableCategorization>): Promise<DetectInstrumentsResponse> {
+    const response = await axios.post(`/api/files/${uploadId}/detect-instruments`, categorization, {
       headers: {
         'Content-Type': 'application/json',
       },

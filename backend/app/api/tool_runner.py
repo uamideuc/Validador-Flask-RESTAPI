@@ -91,12 +91,10 @@ def run_tool_validation(tool_name):
         categorization_dict = validation_session['categorization']
         if isinstance(categorization_dict, str):
             categorization_dict = json.loads(categorization_dict)
-
         if tool_name == 'respuestas':
             categorization = RespuestasCategorization.from_dict(categorization_dict)
         else:
-            categorization = VariableCategorization(**categorization_dict)
-
+            categorization = VariableCategorization.from_dict(categorization_dict)
         # Get and initialize toolkit
         toolkit = get_toolkit(tool_name, session_id)
         if not toolkit:
@@ -182,11 +180,10 @@ def export_tool_data(tool_name):
         categorization_dict = validation_session['categorization']
         if isinstance(categorization_dict, str):
             categorization_dict = json.loads(categorization_dict)
-
         if tool_name == 'respuestas':
             categorization = RespuestasCategorization.from_dict(categorization_dict)
         else:
-            categorization = VariableCategorization(**categorization_dict)
+            categorization = VariableCategorization.from_dict(categorization_dict)
 
         # Get and initialize toolkit
         toolkit = get_toolkit(tool_name, session_id)
@@ -282,11 +279,10 @@ def get_variable_values(tool_name):
         categorization_dict = validation_session['categorization']
         if isinstance(categorization_dict, str):
             categorization_dict = json.loads(categorization_dict)
-
         if tool_name == 'respuestas':
             categorization = RespuestasCategorization.from_dict(categorization_dict)
         else:
-            categorization = VariableCategorization(**categorization_dict)
+            categorization = VariableCategorization.from_dict(categorization_dict)
 
         # Get and initialize toolkit
         toolkit = get_toolkit(tool_name, session_id)
