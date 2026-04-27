@@ -19,7 +19,7 @@ import {
 import { ExpandMore, DragIndicator, Person, QuestionAnswer, Folder, Description } from '@mui/icons-material';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import ItemConfigPanel from './ItemConfigPanel';
+import ItemConfigPanel, { ResponseType } from './ItemConfigPanel';
 import DataPreview from '../../ensamblaje-validator/components/DataPreview';
 import { useRespuestasState, RespuestasItemConfig } from '../../../core/ToolStateContext';
 import { LdCSuggestedCategorization } from './LdCUpload';
@@ -200,6 +200,8 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const [itemConfigs, setItemConfigs] = useState<RespuestasItemConfig[]>(
     respuestasState.itemConfigs || []
   );
+  const [responseTypes, setResponseTypes] = useState<ResponseType[]>([]);
+  const [typeAssignments, setTypeAssignments] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -345,6 +347,17 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       return;
     }
 
+    const responseTypesPayload = responseTypes.map(t => ({
+      id: t.id,
+      label: t.label,
+      valid_values: t.valid_values,
+      missing_values: t.missing_values,
+      missing_includes_empty: t.missing_includes_empty,
+      item_names: responseVarObjects
+        .filter(v => typeAssignments[v.name] === t.id)
+        .map(v => v.name)
+    }));
+
     const categorizationData = {
       participant_id_vars: categorizedVariables.participant_id_vars.map(v => v.name),
       response_vars: categorizedVariables.response_vars.map(v => v.name),
@@ -355,7 +368,8 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       ],
       item_configs: itemConfigs.filter(c =>
         categorizedVariables.response_vars.some(v => v.name === c.variable)
-      )
+      ),
+      response_types: responseTypesPayload
     };
 
     setRespuestasState({ itemConfigs });
@@ -481,6 +495,10 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
             responseVariables={responseVarObjects}
             itemConfigs={itemConfigs}
             onConfigsChange={setItemConfigs}
+            onTypesChange={(types, assignments) => {
+              setResponseTypes(types);
+              setTypeAssignments(assignments);
+            }}
           />
         )}
 

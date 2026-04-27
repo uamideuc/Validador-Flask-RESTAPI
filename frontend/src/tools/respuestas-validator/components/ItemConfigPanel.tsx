@@ -37,7 +37,7 @@ interface Variable {
   sampleValues: string[];
 }
 
-interface ResponseType {
+export interface ResponseType {
   id: string;
   label: string;
   valid_values: string[];
@@ -49,6 +49,7 @@ interface ItemConfigPanelProps {
   responseVariables: Variable[];
   itemConfigs: RespuestasItemConfig[];
   onConfigsChange: (configs: RespuestasItemConfig[]) => void;
+  onTypesChange?: (types: ResponseType[], assignments: Record<string, string>) => void;
 }
 
 // ── Dialogs ────────────────────────────────────────────────────────────────
@@ -350,6 +351,7 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
   responseVariables,
   itemConfigs,
   onConfigsChange,
+  onTypesChange,
 }) => {
   const [types, setTypes] = useState<ResponseType[]>([]);
   // Map: variable name → type id
@@ -413,6 +415,7 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
       });
     }
     onConfigsChange(configs);
+    onTypesChange?.(types, assignments);
   }, [types, assignments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const unassigned = responseVariables.filter(v => !assignments[v.name]);

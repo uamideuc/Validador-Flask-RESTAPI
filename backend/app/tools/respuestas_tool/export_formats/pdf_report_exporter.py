@@ -100,7 +100,7 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
         story.append(PageBreak())
         story.extend(self._create_duplicates_section(validation_data))
         story.append(PageBreak())
-        story.extend(self._create_response_range_section(validation_data))
+        story.extend(self._create_response_range_section(validation_data, categorization))
         story.append(PageBreak())
         story.extend(self._create_missing_patterns_section(validation_data))
         story.append(PageBreak())
@@ -214,6 +214,31 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
             [self._cell('Metadata'), _vars('metadata_vars')],
         ]
         story.append(self._build_table(rows, [2.2 * inch, 4.3 * inch]))
+
+        response_types = categorization.get('response_types', [])
+        if response_types:
+            story.append(Spacer(1, 16))
+            story.append(Paragraph("Tipos de respuesta configurados", self.styles['Heading2']))
+            tipo_rows = [
+                [Paragraph('<b>Tipo</b>', self.styles['Body']),
+                 Paragraph('<b>Válidos</b>', self.styles['Body']),
+                 Paragraph('<b>Missing</b>', self.styles['Body']),
+                 Paragraph('<b>Ítems</b>', self.styles['Body'])]
+            ]
+            for rt in response_types:
+                valid_str = self._truncate_list(rt.get('valid_values', []), limit=10)
+                missing_parts = list(rt.get('missing_values', []))
+                if rt.get('missing_includes_empty'):
+                    missing_parts.append('vacío')
+                missing_str = self._truncate_list(missing_parts, limit=10) if missing_parts else '—'
+                tipo_rows.append([
+                    self._cell(rt.get('label', '—')),
+                    self._cell(valid_str),
+                    self._cell(missing_str),
+                    self._cell(len(rt.get('item_names', [])))
+                ])
+            story.append(self._build_table(tipo_rows, [2.2 * inch, 1.8 * inch, 1.8 * inch, 0.7 * inch]))
+
         return story
 
     def _create_duplicates_section(self, validation_data: Dict[str, Any]) -> List[Any]:
@@ -268,7 +293,7 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
 
         return story
 
-    def _create_response_range_section(self, validation_data: Dict[str, Any]) -> List[Any]:
+    def _create_response_range_section(self, validation_data: Dict[str, Any], categorization: Dict[str, Any] = None) -> List[Any]:
         story: List[Any] = []
         self._add_bookmark(story, "4. Rango de Respuestas", 0)
         result = validation_data.get('response_range_validation', {})
@@ -282,7 +307,94 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
             story.append(self._create_info_box("Resultado", "No se detectaron valores fuera de rango.", BRAND_COLORS['success']))
 
         by_item = result.get('out_of_range_by_item', {})
-        if by_item:
+        if not by_item:
+            return story
+
+        response_types = (categorization or {}).get('response_types', [])
+
+        if response_types:
+            # Build item → response type lookup
+            item_to_rt = {}
+            for rt in response_types:
+                for name in rt.get('item_names', []):
+                    item_to_rt[name] = rt
+
+            col_widths = [1.7 * inch, 1.0 * inch, 0.8 * inch, 3.0 * inch]
+            headers = [Paragraph('<b>Ítem</b>', self.styles['Body']),
+                       Paragraph('<b>Fuera de rango</b>', self.styles['Body']),
+                       Paragraph('<b>%</b>', self.styles['Body']),
+                       Paragraph('<b>Valores inválidos</b>', self.styles['Body'])]
+            rows = [headers]
+            span_rows = []
+            row_idx = 1
+
+            for rt in response_types:
+                rt_id = rt.get('id', '')
+                valid_preview = ', '.join(str(v) for v in rt.get('valid_values', [])[:8])
+                header_text = f"<b>{rt.get('label', '—')}</b>"
+                if valid_preview:
+                    header_text += f" — válidos: {valid_preview}"
+                rows.append([Paragraph(header_text, self.styles['Body']), '', '', ''])
+                span_rows.append(row_idx)
+                row_idx += 1
+
+                items_in_type = [(item, data) for item, data in by_item.items()
+                                 if item_to_rt.get(item, {}).get('id') == rt_id]
+
+                if not items_in_type:
+                    rows.append([self._cell('✓ Sin problemas en este tipo'), '', '', ''])
+                    span_rows.append(row_idx)
+                    row_idx += 1
+                else:
+                    for item, data in items_in_type[:20]:
+                        invalid_parts = [f"{k} ({v})" for k, v in list(data.get('invalid_values', {}).items())[:6]]
+                        invalid_str = self._truncate_list(invalid_parts, limit=6) if invalid_parts else 'N/A'
+                        rows.append([
+                            self._cell(item),
+                            self._cell(data.get('count', 0)),
+                            self._cell(f"{data.get('percentage', 0)}%"),
+                            self._cell(invalid_str)
+                        ])
+                        row_idx += 1
+
+            untyped = [(item, data) for item, data in by_item.items() if item not in item_to_rt]
+            if untyped:
+                rows.append([Paragraph('<b>Sin tipo asignado</b>', self.styles['Body']), '', '', ''])
+                span_rows.append(row_idx)
+                row_idx += 1
+                for item, data in untyped[:20]:
+                    invalid_parts = [f"{k} ({v})" for k, v in list(data.get('invalid_values', {}).items())[:6]]
+                    invalid_str = self._truncate_list(invalid_parts, limit=6) if invalid_parts else 'N/A'
+                    rows.append([
+                        self._cell(item),
+                        self._cell(data.get('count', 0)),
+                        self._cell(f"{data.get('percentage', 0)}%"),
+                        self._cell(invalid_str)
+                    ])
+                    row_idx += 1
+
+            table = Table(rows, colWidths=col_widths)
+            base_styles = [
+                ('BACKGROUND', (0, 0), (-1, 0), BRAND_COLORS['primary']),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('GRID', (0, 0), (-1, -1), 0.5, BRAND_COLORS['divider']),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F7F9FC')]),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]
+            for span_row in span_rows:
+                base_styles.append(('SPAN', (0, span_row), (3, span_row)))
+                base_styles.append(('BACKGROUND', (0, span_row), (3, span_row), colors.HexColor('#EFEFEF')))
+            table.setStyle(TableStyle(base_styles))
+            story.append(Spacer(1, 10))
+            story.append(table)
+
+        else:
             rows = [[Paragraph('<b>Ítem</b>', self.styles['Body']),
                      Paragraph('<b>Fuera de rango</b>', self.styles['Body']),
                      Paragraph('<b>%</b>', self.styles['Body']),

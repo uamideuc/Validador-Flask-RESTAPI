@@ -34,8 +34,18 @@ import {
   Assessment
 } from '@mui/icons-material';
 
+interface ResponseTypeInfo {
+  id: string;
+  label: string;
+  valid_values: string[];
+  missing_values: string[];
+  missing_includes_empty: boolean;
+  item_names: string[];
+}
+
 interface ValidationReportProps {
   validationData: any;
+  savedCategorization?: any;
   onExport: (exportType: string) => void;
   isLoading?: boolean;
 }
@@ -96,6 +106,7 @@ const CheckSection: React.FC<{
 
 const ValidationReport: React.FC<ValidationReportProps> = ({
   validationData,
+  savedCategorization,
   onExport,
   isLoading
 }) => {
@@ -120,6 +131,12 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
   const dupNamesResult = validationData.duplicate_names_validation;
   const identicalResult = validationData.identical_columns_validation;
   const exportOptions = validationData.export_options || [];
+
+  const responseTypes: ResponseTypeInfo[] = savedCategorization?.response_types ?? [];
+  const itemToType = new Map<string, ResponseTypeInfo>();
+  for (const t of responseTypes) {
+    for (const name of t.item_names) itemToType.set(name, t);
+  }
 
   return (
     <Box>
@@ -220,37 +237,175 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
               {' | '}Celdas fuera de rango: <strong>{rangeResult.statistics.total_out_of_range_cells || 0}</strong>
             </Typography>
 
-            {Object.keys(rangeResult.out_of_range_by_item || {}).length > 0 && (
-              <TableContainer component={Paper} variant="outlined" sx={{ mt: 2, maxHeight: 300 }}>
-                <Table size="small" stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Ítem</TableCell>
-                      <TableCell>Fuera de rango</TableCell>
-                      <TableCell>%</TableCell>
-                      <TableCell>Valores inválidos</TableCell>
-                      <TableCell>Valores válidos</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {Object.entries(rangeResult.out_of_range_by_item).map(([item, data]: [string, any]) => (
-                      <TableRow key={item}>
-                        <TableCell>{item}</TableCell>
-                        <TableCell>{data.count}</TableCell>
-                        <TableCell>{data.percentage}%</TableCell>
-                        <TableCell>
-                          {Object.entries(data.invalid_values || {}).slice(0, 5).map(([val, cnt]: [string, any]) => (
-                            <Chip key={val} label={`${val} (${cnt})`} size="small" color="error" variant="outlined" sx={{ m: 0.25 }} />
-                          ))}
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption">{(data.valid_values || []).join(', ')}</Typography>
-                        </TableCell>
+            {responseTypes.length > 0 ? (() => {
+              const byItem = rangeResult.out_of_range_by_item || {};
+              const allTypedItems = new Set(responseTypes.flatMap(t => t.item_names));
+              const untypedWithIssues = Object.keys(byItem).filter(n => !allTypedItems.has(n));
+
+              return (
+                <>
+                  {/* Tabla resumen por tipo */}
+                  <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Tipo</TableCell>
+                          <TableCell align="right">Ítems</TableCell>
+                          <TableCell align="right">Con problemas</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {responseTypes.map(t => {
+                          const issueCount = t.item_names.filter(n => !!byItem[n]).length;
+                          return (
+                            <TableRow key={t.id}>
+                              <TableCell>{t.label}</TableCell>
+                              <TableCell align="right">{t.item_names.length}</TableCell>
+                              <TableCell align="right">
+                                {issueCount > 0
+                                  ? <Chip label={issueCount} size="small" color="warning" />
+                                  : <Chip label="✓" size="small" color="success" />}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {untypedWithIssues.length > 0 && (
+                          <TableRow>
+                            <TableCell sx={{ fontStyle: 'italic', color: 'text.secondary' }}>Sin tipo asignado</TableCell>
+                            <TableCell align="right">—</TableCell>
+                            <TableCell align="right">
+                              <Chip label={untypedWithIssues.length} size="small" color="warning" />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  {/* Tabla detalle agrupada por tipo */}
+                  {Object.keys(byItem).length > 0 && (
+                    <TableContainer component={Paper} variant="outlined" sx={{ mt: 2, maxHeight: 400 }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Ítem</TableCell>
+                            <TableCell>Fuera de rango</TableCell>
+                            <TableCell>%</TableCell>
+                            <TableCell>Valores inválidos</TableCell>
+                            <TableCell>Valores válidos</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {responseTypes.map(t => {
+                            const itemsWithIssues = t.item_names.filter(n => !!byItem[n]);
+                            return (
+                              <React.Fragment key={t.id}>
+                                <TableRow>
+                                  <TableCell
+                                    colSpan={5}
+                                    sx={{ backgroundColor: 'grey.100', fontWeight: 'bold', fontSize: '0.75rem', color: 'text.secondary', py: 0.75 }}
+                                  >
+                                    {t.label}{t.valid_values.length > 0 && ` — válidos: ${t.valid_values.join(', ')}`}
+                                  </TableCell>
+                                </TableRow>
+                                {itemsWithIssues.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={5} sx={{ color: 'success.main', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                                      ✓ Sin problemas
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  itemsWithIssues.map(item => {
+                                    const data = byItem[item];
+                                    return (
+                                      <TableRow key={item}>
+                                        <TableCell>{item}</TableCell>
+                                        <TableCell>{data.count}</TableCell>
+                                        <TableCell>{data.percentage}%</TableCell>
+                                        <TableCell>
+                                          {Object.entries(data.invalid_values || {}).slice(0, 5).map(([val, cnt]: [string, any]) => (
+                                            <Chip key={val} label={`${val} (${cnt})`} size="small" color="error" variant="outlined" sx={{ m: 0.25 }} />
+                                          ))}
+                                        </TableCell>
+                                        <TableCell>
+                                          <Typography variant="caption">{(data.valid_values || []).join(', ')}</Typography>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                          {untypedWithIssues.length > 0 && (
+                            <React.Fragment>
+                              <TableRow>
+                                <TableCell
+                                  colSpan={5}
+                                  sx={{ backgroundColor: 'grey.100', fontWeight: 'bold', fontSize: '0.75rem', color: 'text.secondary', py: 0.75 }}
+                                >
+                                  Sin tipo asignado
+                                </TableCell>
+                              </TableRow>
+                              {untypedWithIssues.map(item => {
+                                const data = byItem[item];
+                                return (
+                                  <TableRow key={item}>
+                                    <TableCell>{item}</TableCell>
+                                    <TableCell>{data.count}</TableCell>
+                                    <TableCell>{data.percentage}%</TableCell>
+                                    <TableCell>
+                                      {Object.entries(data.invalid_values || {}).slice(0, 5).map(([val, cnt]: [string, any]) => (
+                                        <Chip key={val} label={`${val} (${cnt})`} size="small" color="error" variant="outlined" sx={{ m: 0.25 }} />
+                                      ))}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Typography variant="caption">—</Typography>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </React.Fragment>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </>
+              );
+            })() : (
+              Object.keys(rangeResult.out_of_range_by_item || {}).length > 0 && (
+                <TableContainer component={Paper} variant="outlined" sx={{ mt: 2, maxHeight: 300 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Ítem</TableCell>
+                        <TableCell>Fuera de rango</TableCell>
+                        <TableCell>%</TableCell>
+                        <TableCell>Valores inválidos</TableCell>
+                        <TableCell>Valores válidos</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(rangeResult.out_of_range_by_item).map(([item, data]: [string, any]) => (
+                        <TableRow key={item}>
+                          <TableCell>{item}</TableCell>
+                          <TableCell>{data.count}</TableCell>
+                          <TableCell>{data.percentage}%</TableCell>
+                          <TableCell>
+                            {Object.entries(data.invalid_values || {}).slice(0, 5).map(([val, cnt]: [string, any]) => (
+                              <Chip key={val} label={`${val} (${cnt})`} size="small" color="error" variant="outlined" sx={{ m: 0.25 }} />
+                            ))}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="caption">{(data.valid_values || []).join(', ')}</Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )
             )}
           </Box>
         )}

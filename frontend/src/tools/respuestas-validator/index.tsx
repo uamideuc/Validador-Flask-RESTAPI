@@ -133,6 +133,7 @@ const RespuestasValidator: React.FC = () => {
           response_vars: categorizationData.response_vars,
           other_relevant_vars: categorizationData.other_relevant_vars,
           metadata_vars: categorizationData.metadata_vars,
+          response_types: categorizationData.response_types ?? [],
         };
 
         setRespuestasState({
@@ -252,6 +253,7 @@ const RespuestasValidator: React.FC = () => {
         return validationResults ? (
           <ValidationReport
             validationData={validationResults.validation_report}
+            savedCategorization={savedCategorization}
             onExport={handleExport}
             isLoading={isLoading}
           />
