@@ -60,6 +60,8 @@ export interface RespuestasState {
   savedCategorization: any;
   currentCategorization: any;
   itemConfigs: RespuestasItemConfig[];
+  itemTypes: any[];
+  itemTypeAssignments: Record<string, string>;
   ldcState: LdCState | null;
   hasCompletedValidation: boolean;
   hasChangesAfterValidation: boolean;
@@ -122,6 +124,8 @@ const initialRespuestasState: RespuestasState = {
   savedCategorization: null,
   currentCategorization: null,
   itemConfigs: [],
+  itemTypes: [],
+  itemTypeAssignments: {},
   ldcState: null,
   hasCompletedValidation: false,
   hasChangesAfterValidation: false,

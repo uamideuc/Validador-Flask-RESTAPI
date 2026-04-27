@@ -206,7 +206,8 @@ def parse_file(upload_id):
             'variables': parse_result['columns'],
             'sample_values': parse_result['sample_values'],
             'statistics': parse_result['statistics'],
-            'sheet_name': parse_result.get('sheet_name')
+            'sheet_name': parse_result.get('sheet_name'),
+            'renamed_columns': parse_result.get('renamed_columns', {}),
         }
         
         return jsonify(response_data), 200

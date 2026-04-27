@@ -202,7 +202,17 @@ class FileUploadService:
             
             # Get column information
             columns = df.columns.tolist()
-            
+
+            # Detect columns that pandas renamed due to duplicates (e.g. i6 → i6.1)
+            import re as _re
+            col_set = set(str(c) for c in columns)
+            renamed_columns: dict = {}
+            for col in columns:
+                col_str = str(col)
+                m = _re.match(r'^(.+)\.(\d+)$', col_str)
+                if m and m.group(1) in col_set:
+                    renamed_columns[col_str] = m.group(1)
+
             # Get sample values for each column (first 5 non-null values)
             sample_values = {}
             for col in columns:
@@ -224,7 +234,8 @@ class FileUploadService:
                 'sample_values': sample_values,
                 'statistics': stats,
                 'sheet_name': sheet_name,
-                'unnamed_columns_info': unnamed_columns_info
+                'unnamed_columns_info': unnamed_columns_info,
+                'renamed_columns': renamed_columns,
             }
             
         except Exception as e:

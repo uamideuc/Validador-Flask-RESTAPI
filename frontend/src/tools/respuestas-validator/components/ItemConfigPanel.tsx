@@ -50,6 +50,8 @@ interface ItemConfigPanelProps {
   itemConfigs: RespuestasItemConfig[];
   onConfigsChange: (configs: RespuestasItemConfig[]) => void;
   onTypesChange?: (types: ResponseType[], assignments: Record<string, string>) => void;
+  initialTypes?: ResponseType[];
+  initialAssignments?: Record<string, string>;
 }
 
 // ── Dialogs ────────────────────────────────────────────────────────────────
@@ -352,6 +354,8 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
   itemConfigs,
   onConfigsChange,
   onTypesChange,
+  initialTypes,
+  initialAssignments,
 }) => {
   const [types, setTypes] = useState<ResponseType[]>([]);
   // Map: variable name → type id
@@ -371,11 +375,20 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
     return m;
   }, [responseVariables]);
 
-  // Sync itemConfigs → types+assignments when LdC pre-populates configs
+  // Sync itemConfigs → types+assignments (LdC cold-start or restoring saved state)
   React.useEffect(() => {
-    if (itemConfigs.length === 0 || types.length > 0) return;
+    if (types.length > 0) return;
 
-    // Group incoming configs by their fingerprint (valid+missing signature)
+    // Priority 1: restore from persisted context (preserves custom labels)
+    if (initialTypes && initialTypes.length > 0) {
+      setTypes(initialTypes);
+      if (initialAssignments) setAssignments(initialAssignments);
+      return;
+    }
+
+    // Priority 2: reconstruct from LdC-supplied itemConfigs (generic labels)
+    if (itemConfigs.length === 0) return;
+
     const fingerprints = new Map<string, { config: RespuestasItemConfig; names: string[] }>();
     for (const c of itemConfigs) {
       const fp = JSON.stringify({ v: [...c.valid_values].sort(), m: [...c.missing_values].sort(), e: c.missing_includes_empty });
@@ -399,7 +412,7 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
     }
     setTypes(newTypes);
     setAssignments(newAssignments);
-  }, [itemConfigs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [itemConfigs, initialTypes, initialAssignments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep parent itemConfigs in sync whenever types or assignments change
   React.useEffect(() => {
@@ -420,7 +433,12 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
 
   const unassigned = responseVariables.filter(v => !assignments[v.name]);
   const configuredCount = responseVariables.filter(v => !!assignments[v.name]).length;
-  const allConfigured = configuredCount === responseVariables.length && responseVariables.length > 0;
+  const allConfigured = configuredCount === responseVariables.length
+    && responseVariables.length > 0
+    && types.every(t =>
+      t.valid_values.length > 0 ||
+      !responseVariables.some(v => assignments[v.name] === t.id)
+    );
 
   // ── Type CRUD ─────────────────────────────────────────────────────────────
 
@@ -446,16 +464,13 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
 
   const handleAssignConfirm = (typeId: string, selectedNames: string[]) => {
     const selectedSet = new Set(selectedNames);
-    setAssignments(prev => {
-      const next = { ...prev };
-      // Remove items that were previously in this type but are no longer selected
-      for (const [k, v] of Object.entries(next)) {
-        if (v === typeId && !selectedSet.has(k)) delete next[k];
-      }
-      // Assign selected items to this type (overriding previous assignment)
-      for (const name of selectedNames) next[name] = typeId;
-      return next;
-    });
+    const newAssignments = { ...assignments };
+    for (const [k, v] of Object.entries(newAssignments)) {
+      if (v === typeId && !selectedSet.has(k)) delete newAssignments[k];
+    }
+    for (const name of selectedNames) newAssignments[name] = typeId;
+    setAssignments(newAssignments);
+    if (selectedNames.length === 0) setTypes(prev => prev.filter(t => t.id !== typeId));
     setAssignDialog(null);
   };
 
@@ -475,12 +490,16 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
       missing_values: [],
       missing_includes_empty: false,
     }));
-    const newAssignments: Record<string, string> = {};
+    const mergedAssignments: Record<string, string> = { ...assignments };
     for (let i = 0; i < groups.length; i++) {
-      for (const name of groups[i].names) newAssignments[name] = newTypes[i].id;
+      for (const name of groups[i].names) mergedAssignments[name] = newTypes[i].id;
     }
-    setTypes(prev => [...prev, ...newTypes]);
-    setAssignments(prev => ({ ...prev, ...newAssignments }));
+    const allTypes = [...types, ...newTypes];
+    const keptTypes = allTypes.filter(t =>
+      responseVariables.some(v => mergedAssignments[v.name] === t.id)
+    );
+    setTypes(keptTypes);
+    setAssignments(mergedAssignments);
     setAutoDetectOpen(false);
   };
 
@@ -558,17 +577,22 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
             >
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                 <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {type.label}
-                  </Typography>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                      {type.label}
+                    </Typography>
+                    {type.valid_values.length === 0 && (
+                      <Chip label="Falta declarar valores válidos" color="warning" size="small" />
+                    )}
+                    {!hasMissing && (
+                      <Chip label="Falta declarar missing" color="warning" size="small" />
+                    )}
+                  </Box>
                   <Typography variant="caption" color="text.secondary">
                     Válidos:&nbsp;<strong>{type.valid_values.length > 0 ? type.valid_values.join(', ') : '—'}</strong>
                     &nbsp;&nbsp;Missing:&nbsp;<strong>
                       {[...type.missing_values, ...(type.missing_includes_empty ? ['vacío'] : [])].join(', ') || '—'}
                     </strong>
-                    {!hasMissing && (
-                      <Chip label="Falta declarar missing" color="warning" size="small" sx={{ ml: 1 }} />
-                    )}
                   </Typography>
                 </Box>
                 <Box display="flex" gap={0.5}>

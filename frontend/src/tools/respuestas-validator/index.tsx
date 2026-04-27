@@ -37,6 +37,7 @@ const RespuestasValidator: React.FC = () => {
     validationSessionId,
     savedCategorization,
     hasCompletedValidation,
+    hasChangesAfterValidation,
     error,
     isLoading
   } = respuestasState;
@@ -141,6 +142,7 @@ const RespuestasValidator: React.FC = () => {
           validationSessionId: saveResult.validation_session_id,
           savedCategorization: categorizationForPersistence,
           hasCompletedValidation: true,
+          hasChangesAfterValidation: false,
           activeStep: 2,
           isLoading: false
         });
@@ -247,6 +249,7 @@ const RespuestasValidator: React.FC = () => {
             uploadedFilename={uploadedFilename}
             savedCategorization={savedCategorization}
             ldcSuggestedCategorization={ldcSuggested}
+            renamedColumns={parseData.renamed_columns || {}}
           />
         ) : null;
       case 2:
@@ -337,7 +340,7 @@ const RespuestasValidator: React.FC = () => {
                 onClick={handleNext}
                 disabled={isLoading ||
                   (activeStep === 0 && !parseData) ||
-                  (activeStep === 1 && !hasCompletedValidation)}
+                  (activeStep === 1 && (!hasCompletedValidation || hasChangesAfterValidation))}
                 endIcon={<span>→</span>}
               >
                 Siguiente Paso

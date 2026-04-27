@@ -164,7 +164,7 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
             "4. Rango de Respuestas",
             "5. Patrones de Missing",
             "6. Variabilidad",
-            "7. Estructura de Variables",
+            "7. Columnas Idénticas",
             "8. Conclusiones y Recomendaciones",
         ]
         for item in items:
@@ -487,30 +487,13 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
 
     def _create_structure_checks_section(self, validation_data: Dict[str, Any]) -> List[Any]:
         story: List[Any] = []
-        self._add_bookmark(story, "7. Estructura de Variables", 0)
-        story.append(Paragraph("7. Estructura de Variables", self.styles['Heading1']))
+        self._add_bookmark(story, "7. Columnas Idénticas", 0)
+        story.append(Paragraph("7. Columnas Idénticas", self.styles['Heading1']))
 
-        duplicate_names = validation_data.get('duplicate_names_validation', {})
         identical_columns = validation_data.get('identical_columns_validation', {})
-
-        duplicate_groups = duplicate_names.get('duplicate_groups', [])
-        if duplicate_groups:
-            story.append(Paragraph("Nombres de variables repetidos", self.styles['Heading2']))
-            rows = [[Paragraph('<b>Nombre</b>', self.styles['Body']),
-                     Paragraph('<b>Veces</b>', self.styles['Body']),
-                     Paragraph('<b>Columnas</b>', self.styles['Body'])]]
-            for group in duplicate_groups[:20]:
-                rows.append([
-                    self._cell(group.get('name', '')),
-                    self._cell(group.get('count', 0)),
-                    self._cell(self._truncate_list(group.get('column_indices', []), limit=8))
-                ])
-            story.append(self._build_table(rows, [2.6 * inch, 0.9 * inch, 2.8 * inch]))
-            story.append(Spacer(1, 10))
-
         identical_pairs = identical_columns.get('identical_pairs', [])
+
         if identical_pairs:
-            story.append(Paragraph("Columnas idénticas", self.styles['Heading2']))
             rows = [[Paragraph('<b>Columnas</b>', self.styles['Body']),
                      Paragraph('<b>Cantidad</b>', self.styles['Body'])]]
             for pair in identical_pairs[:20]:
@@ -519,9 +502,8 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
                     self._cell(pair.get('count', 0))
                 ])
             story.append(self._build_table(rows, [5.3 * inch, 1.2 * inch]))
-
-        if not duplicate_groups and not identical_pairs:
-            story.append(self._create_info_box("Resultado", "No se detectaron problemas estructurales en nombres o columnas idénticas.", BRAND_COLORS['success']))
+        else:
+            story.append(self._create_info_box("Resultado", "No se detectaron columnas idénticas.", BRAND_COLORS['success']))
 
         return story
 

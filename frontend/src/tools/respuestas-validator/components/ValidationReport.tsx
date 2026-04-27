@@ -16,11 +16,11 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
-  Divider,
   List,
   ListItem,
   ListItemText,
-  ListItemIcon
+  ListItemIcon,
+  Grid
 } from '@mui/material';
 import {
   ExpandMore,
@@ -28,7 +28,6 @@ import {
   Warning,
   Error as ErrorIcon,
   Download,
-  ContentCopy,
   People,
   ViewColumn,
   Assessment
@@ -66,7 +65,8 @@ const CheckSection: React.FC<{
   result: any;
   children: React.ReactNode;
   defaultExpanded?: boolean;
-}> = ({ title, icon, result, children, defaultExpanded }) => {
+  badge?: string;
+}> = ({ title, icon, result, children, defaultExpanded, badge }) => {
   const hasErrors = result?.errors?.length > 0;
   const hasWarnings = result?.warnings?.length > 0;
 
@@ -82,6 +82,11 @@ const CheckSection: React.FC<{
           <Typography variant="subtitle1" sx={{ fontWeight: 'bold', flex: 1 }}>
             {title}
           </Typography>
+          {badge && (
+            <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+              {badge}
+            </Typography>
+          )}
           {result?.is_valid === false && <Chip label="Error" color="error" size="small" />}
           {result?.is_valid !== false && hasWarnings && <Chip label="Advertencia" color="warning" size="small" />}
           {result?.is_valid !== false && !hasWarnings && <Chip label="OK" color="success" size="small" />}
@@ -128,38 +133,62 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
   const rangeResult = validationData.response_range_validation;
   const missingResult = validationData.missing_patterns_validation;
   const varResult = validationData.variability_validation;
-  const dupNamesResult = validationData.duplicate_names_validation;
   const identicalResult = validationData.identical_columns_validation;
   const exportOptions = validationData.export_options || [];
 
   const responseTypes: ResponseTypeInfo[] = savedCategorization?.response_types ?? [];
-  const itemToType = new Map<string, ResponseTypeInfo>();
-  for (const t of responseTypes) {
-    for (const name of t.item_names) itemToType.set(name, t);
-  }
+
+  const dupCount = (dupResult?.statistics?.simple_dup_groups || 0) + (dupResult?.statistics?.clone_groups || 0);
+  const itemsWithIssues = rangeResult?.statistics?.items_with_issues || 0;
+  const excessiveMissing = missingResult?.statistics?.participants_with_excessive_missing || 0;
+
+  const exportDescriptions: Record<string, string> = {
+    'validation_report_pdf': 'Informe completo con todas las validaciones en PDF',
+    'validation_excel': 'Datos exportados en Excel para análisis adicional',
+  };
 
   return (
     <Box>
       <Typography variant="h5" gutterBottom>Reporte de Validación</Typography>
 
-      {/* Summary */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography variant="h6">Resumen General</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {summary?.total_items} participantes analizados
+      {/* Summary — metric cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderLeft: '4px solid', borderColor: 'primary.main' }}>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>{summary?.total_items ?? '—'}</Typography>
+            <Typography variant="body2" color="text.secondary">Participantes analizados</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderLeft: '4px solid', borderColor: itemsWithIssues > 0 ? 'warning.main' : 'success.main' }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: itemsWithIssues > 0 ? 'warning.main' : 'success.main' }}>
+              {itemsWithIssues}
             </Typography>
-          </Box>
-          <StatusChip status={summary?.validation_status || 'error'} />
-        </Box>
-      </Paper>
+            <Typography variant="body2" color="text.secondary">Ítems con problemas de rango</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderLeft: '4px solid', borderColor: dupCount > 0 ? 'error.main' : 'success.main' }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: dupCount > 0 ? 'error.main' : 'success.main' }}>
+              {dupCount}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">Grupos de duplicados de ID</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderLeft: '4px solid', borderColor: 'grey.400', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 0.5 }}>
+            <StatusChip status={summary?.validation_status || 'error'} />
+            <Typography variant="body2" color="text.secondary">Estado general</Typography>
+          </Paper>
+        </Grid>
+      </Grid>
 
       {/* Check 1: Duplicates */}
       <CheckSection
         title="Duplicados de ID"
         icon={<People />}
         result={dupResult}
+        badge={dupCount > 0 ? `${dupCount} grupo${dupCount !== 1 ? 's' : ''}` : undefined}
       >
         {dupResult?.statistics && (
           <Box sx={{ mt: 1 }}>
@@ -176,7 +205,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
                 <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
                   <Table size="small" stickyHeader>
                     <TableHead>
-                      <TableRow>
+                      <TableRow sx={{ '& .MuiTableCell-head': { backgroundColor: 'primary.main', color: 'white', fontWeight: 'bold' } }}>
                         <TableCell>ID</TableCell>
                         <TableCell>Repeticiones</TableCell>
                         <TableCell>Filas</TableCell>
@@ -202,7 +231,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
                 <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 200 }}>
                   <Table size="small" stickyHeader>
                     <TableHead>
-                      <TableRow>
+                      <TableRow sx={{ '& .MuiTableCell-head': { backgroundColor: 'primary.main', color: 'white', fontWeight: 'bold' } }}>
                         <TableCell>ID</TableCell>
                         <TableCell>Copias</TableCell>
                       </TableRow>
@@ -228,6 +257,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
         title="Rango de Respuestas"
         icon={<Assessment />}
         result={rangeResult}
+        badge={itemsWithIssues > 0 ? `${itemsWithIssues} ítem${itemsWithIssues !== 1 ? 's' : ''} con problemas` : undefined}
       >
         {rangeResult?.statistics && (
           <Box sx={{ mt: 1 }}>
@@ -248,7 +278,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
                   <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
                     <Table size="small">
                       <TableHead>
-                        <TableRow>
+                        <TableRow sx={{ '& .MuiTableCell-head': { backgroundColor: 'primary.main', color: 'white', fontWeight: 'bold' } }}>
                           <TableCell>Tipo</TableCell>
                           <TableCell align="right">Ítems</TableCell>
                           <TableCell align="right">Con problemas</TableCell>
@@ -287,7 +317,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
                     <TableContainer component={Paper} variant="outlined" sx={{ mt: 2, maxHeight: 400 }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
-                          <TableRow>
+                          <TableRow sx={{ '& .MuiTableCell-head': { backgroundColor: 'primary.main', color: 'white', fontWeight: 'bold' } }}>
                             <TableCell>Ítem</TableCell>
                             <TableCell>Fuera de rango</TableCell>
                             <TableCell>%</TableCell>
@@ -378,7 +408,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
                 <TableContainer component={Paper} variant="outlined" sx={{ mt: 2, maxHeight: 300 }}>
                   <Table size="small" stickyHeader>
                     <TableHead>
-                      <TableRow>
+                      <TableRow sx={{ '& .MuiTableCell-head': { backgroundColor: 'primary.main', color: 'white', fontWeight: 'bold' } }}>
                         <TableCell>Ítem</TableCell>
                         <TableCell>Fuera de rango</TableCell>
                         <TableCell>%</TableCell>
@@ -416,6 +446,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
         title="Patrones de Missing"
         icon={<ViewColumn />}
         result={missingResult}
+        badge={excessiveMissing > 0 ? `${excessiveMissing} participante${excessiveMissing !== 1 ? 's' : ''} con missing excesivo` : undefined}
       >
         {missingResult?.statistics && (
           <Box sx={{ mt: 1 }}>
@@ -433,7 +464,7 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
                 <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 200 }}>
                   <Table size="small" stickyHeader>
                     <TableHead>
-                      <TableRow>
+                      <TableRow sx={{ '& .MuiTableCell-head': { backgroundColor: 'primary.main', color: 'white', fontWeight: 'bold' } }}>
                         <TableCell>Fila</TableCell>
                         <TableCell>ID</TableCell>
                         <TableCell>Missing</TableCell>
@@ -473,55 +504,39 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
             </Typography>
 
             {(varResult.constant_columns?.length > 0 || varResult.quasi_constant_columns?.length > 0) && (
-              <List dense sx={{ mt: 1 }}>
-                {varResult.constant_columns?.map((c: any, i: number) => (
-                  <ListItem key={`const-${i}`}>
-                    <ListItemIcon><ErrorIcon color="warning" fontSize="small" /></ListItemIcon>
-                    <ListItemText
-                      primary={`${c.column} — constante`}
-                      secondary={`Único valor: "${c.value}" (${c.count} filas)`}
-                    />
-                  </ListItem>
-                ))}
-                {varResult.quasi_constant_columns?.map((c: any, i: number) => (
-                  <ListItem key={`quasi-${i}`}>
-                    <ListItemIcon><Warning color="warning" fontSize="small" /></ListItemIcon>
-                    <ListItemText
-                      primary={`${c.column} — quasi-constante`}
-                      secondary={`Valor dominante: "${c.dominant_value}" (${c.dominant_percentage}%, ${c.unique_values} valores únicos)`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
+              <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ '& .MuiTableCell-head': { backgroundColor: 'primary.main', color: 'white', fontWeight: 'bold' } }}>
+                      <TableCell>Columna</TableCell>
+                      <TableCell>Tipo</TableCell>
+                      <TableCell>Detalle</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {varResult.constant_columns?.map((c: any, i: number) => (
+                      <TableRow key={`const-${i}`}>
+                        <TableCell>{c.column}</TableCell>
+                        <TableCell><Chip label="Constante" size="small" color="warning" /></TableCell>
+                        <TableCell>Único valor: "{c.value}" ({c.count} filas)</TableCell>
+                      </TableRow>
+                    ))}
+                    {varResult.quasi_constant_columns?.map((c: any, i: number) => (
+                      <TableRow key={`quasi-${i}`}>
+                        <TableCell>{c.column}</TableCell>
+                        <TableCell><Chip label="Quasi-constante" size="small" color="warning" variant="outlined" /></TableCell>
+                        <TableCell>Valor dominante: "{c.dominant_value}" ({c.dominant_percentage}%, {c.unique_values} valores únicos)</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
           </Box>
         )}
       </CheckSection>
 
-      {/* Check 5: Duplicate Names */}
-      <CheckSection
-        title="Nombres de Variables Repetidos"
-        icon={<ContentCopy />}
-        result={dupNamesResult}
-      >
-        {dupNamesResult?.duplicate_groups?.length > 0 ? (
-          <List dense>
-            {dupNamesResult.duplicate_groups.map((g: any, i: number) => (
-              <ListItem key={i}>
-                <ListItemIcon><Warning color="warning" fontSize="small" /></ListItemIcon>
-                <ListItemText
-                  primary={`"${g.name}" aparece ${g.count} veces`}
-                  secondary={`Columnas: ${g.column_indices.join(', ')}`}
-                />
-              </ListItem>
-            ))}
-          </List>
-        ) : (
-          <Typography variant="body2" color="text.secondary">No se encontraron nombres repetidos.</Typography>
-        )}
-      </CheckSection>
-
-      {/* Check 6: Identical Columns */}
+      {/* Check 5: Identical Columns */}
       <CheckSection
         title="Columnas Idénticas"
         icon={<ViewColumn />}
@@ -547,22 +562,28 @@ const ValidationReport: React.FC<ValidationReportProps> = ({
       {/* Export buttons */}
       <Paper sx={{ p: 3, mt: 3 }}>
         <Typography variant="h6" gutterBottom>Exportar Resultados</Typography>
-        <Box display="flex" gap={2} flexWrap="wrap">
+        <Box display="flex" gap={3} flexWrap="wrap" alignItems="flex-start">
           {exportOptions.map((option: any) => {
             const active = loadingExport === option.type;
             const disabled = loadingExport !== null || !!isLoading;
 
             return (
-              <Button
-                key={option.type}
-                variant="contained"
-                color={option.type === 'validation_report_pdf' ? 'secondary' : 'primary'}
-                startIcon={active ? <CircularProgress size={20} color="inherit" /> : <Download />}
-                onClick={() => handleExport(option.type)}
-                disabled={disabled}
-              >
-                {active ? 'Generando...' : option.name}
-              </Button>
+              <Box key={option.type} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <Button
+                  variant="contained"
+                  color={option.type === 'validation_report_pdf' ? 'secondary' : 'primary'}
+                  startIcon={active ? <CircularProgress size={20} color="inherit" /> : <Download />}
+                  onClick={() => handleExport(option.type)}
+                  disabled={disabled}
+                >
+                  {active ? 'Generando...' : option.name}
+                </Button>
+                {exportDescriptions[option.type] && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, maxWidth: 200 }}>
+                    {exportDescriptions[option.type]}
+                  </Typography>
+                )}
+              </Box>
             );
           })}
         </Box>

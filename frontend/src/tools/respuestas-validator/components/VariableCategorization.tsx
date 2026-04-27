@@ -175,6 +175,7 @@ interface VariableCategorizationProps {
   uploadedFilename?: string | null;
   savedCategorization?: any;
   ldcSuggestedCategorization?: LdCSuggestedCategorization | null;
+  renamedColumns?: Record<string, string>;
 }
 
 const VariableCategorization: React.FC<VariableCategorizationProps> = ({
@@ -186,6 +187,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   uploadedFilename,
   savedCategorization,
   ldcSuggestedCategorization,
+  renamedColumns,
 }) => {
   const { respuestasState, setRespuestasState } = useRespuestasState();
 
@@ -200,8 +202,12 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const [itemConfigs, setItemConfigs] = useState<RespuestasItemConfig[]>(
     respuestasState.itemConfigs || []
   );
-  const [responseTypes, setResponseTypes] = useState<ResponseType[]>([]);
-  const [typeAssignments, setTypeAssignments] = useState<Record<string, string>>({});
+  const [responseTypes, setResponseTypes] = useState<ResponseType[]>(
+    (respuestasState.itemTypes as ResponseType[]) || []
+  );
+  const [typeAssignments, setTypeAssignments] = useState<Record<string, string>>(
+    respuestasState.itemTypeAssignments || {}
+  );
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -268,6 +274,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
   const handleDrop = useCallback((categoryId: string, variable: Variable) => {
     setError(null);
+    if (respuestasState.hasCompletedValidation) setRespuestasState({ hasChangesAfterValidation: true });
 
     const variablesToMove = selectedVariables.size > 0 && selectedVariables.has(variable.name)
       ? Array.from(selectedVariables).map(name =>
@@ -292,15 +299,16 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     if (selectedVariables.has(variable.name)) {
       setSelectedVariables(new Set());
     }
-  }, [selectedVariables, uncategorizedVariables, categorizedVariables]);
+  }, [selectedVariables, uncategorizedVariables, categorizedVariables, respuestasState.hasCompletedValidation, setRespuestasState]);
 
   const handleRemove = useCallback((categoryId: string, variable: Variable) => {
+    if (respuestasState.hasCompletedValidation) setRespuestasState({ hasChangesAfterValidation: true });
     setCategorizedVariables(prev => ({
       ...prev,
       [categoryId]: prev[categoryId].filter(v => v.name !== variable.name),
     }));
     setUncategorizedVariables(prev => [...prev, variable]);
-  }, []);
+  }, [respuestasState.hasCompletedValidation, setRespuestasState]);
 
   const handleVariableSelect = useCallback((variableName: string) => {
     setSelectedVariables(prev => {
@@ -316,6 +324,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     Object.values(categorizedVariables).forEach(vars => allVars.push(...vars));
     if (allVars.length === 0) return;
 
+    if (respuestasState.hasCompletedValidation) setRespuestasState({ hasChangesAfterValidation: true });
     setUncategorizedVariables(prev => [...prev, ...allVars]);
     setCategorizedVariables({
       participant_id_vars: [],
@@ -324,7 +333,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       metadata_vars: [],
     });
     setError(null);
-  }, [categorizedVariables]);
+  }, [categorizedVariables, respuestasState.hasCompletedValidation, setRespuestasState]);
 
   const responseVarObjects = categorizedVariables.response_vars;
 
@@ -342,6 +351,18 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
       setError('Debe asignar al menos una columna como respuesta/ítem');
       return;
     }
+
+    const itemsWithoutValidValues = responseVarObjects.filter(v => {
+      const config = itemConfigs.find(c => c.variable === v.name);
+      return config && config.valid_values.length === 0;
+    });
+    if (itemsWithoutValidValues.length > 0) {
+      const names = itemsWithoutValidValues.slice(0, 5).map(v => v.name).join(', ');
+      const suffix = itemsWithoutValidValues.length > 5 ? '…' : '';
+      setError(`Los siguientes ítems no tienen valores válidos declarados: ${names}${suffix}`);
+      return;
+    }
+
     if (!allItemsConfigured) {
       setError('Todos los ítems de respuesta deben tener valores missing declarados');
       return;
@@ -396,6 +417,14 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
               {sheetName && <> | Hoja: <strong>{sheetName}</strong></>}
             </Typography>
           </Paper>
+        )}
+
+        {renamedColumns && Object.keys(renamedColumns).length > 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <strong>Columnas renombradas automáticamente:</strong> Tu archivo tenía columnas con nombres repetidos que Python renombró para distinguirlas:{' '}
+            {Object.entries(renamedColumns).map(([renamed, original]) => `${renamed} (original: ${original})`).join(', ')}.
+            {' '}Si son duplicados no intencionales, corrígelos en el archivo original antes de re-subir.
+          </Alert>
         )}
 
         <Paper sx={{ p: 2, mb: 3, backgroundColor: '#f5f5f5' }}>
@@ -494,11 +523,17 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           <ItemConfigPanel
             responseVariables={responseVarObjects}
             itemConfigs={itemConfigs}
-            onConfigsChange={setItemConfigs}
+            onConfigsChange={(configs) => {
+              setItemConfigs(configs);
+              if (respuestasState.hasCompletedValidation) setRespuestasState({ hasChangesAfterValidation: true });
+            }}
             onTypesChange={(types, assignments) => {
               setResponseTypes(types);
               setTypeAssignments(assignments);
+              setRespuestasState({ itemTypes: types, itemTypeAssignments: assignments });
             }}
+            initialTypes={responseTypes.length > 0 ? responseTypes : undefined}
+            initialAssignments={typeAssignments}
           />
         )}
 
