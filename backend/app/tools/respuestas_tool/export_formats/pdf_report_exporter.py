@@ -202,12 +202,16 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
         self._add_bookmark(story, "2. Categorización de Variables", 0)
         story.append(Paragraph("2. Categorización de Variables", self.styles['Heading1']))
 
+        def _vars(key: str) -> 'Paragraph':
+            vals = categorization.get(key, [])
+            return self._cell(self._truncate_list(vals, limit=20, label='vars') if vals else 'No definidas')
+
         rows = [
-            ['Categoría', 'Variables'],
-            ['ID participante', ', '.join(categorization.get('participant_id_vars', [])) or 'No definidas'],
-            ['Otras relevantes', ', '.join(categorization.get('other_relevant_vars', [])) or 'No definidas'],
-            ['Respuestas / ítems', ', '.join(categorization.get('response_vars', [])) or 'No definidas'],
-            ['Metadata', ', '.join(categorization.get('metadata_vars', [])) or 'No definidas'],
+            [Paragraph('<b>Categoría</b>', self.styles['Body']), Paragraph('<b>Variables</b>', self.styles['Body'])],
+            [self._cell('ID participante'), _vars('participant_id_vars')],
+            [self._cell('Otras relevantes'), _vars('other_relevant_vars')],
+            [self._cell('Respuestas / ítems'), _vars('response_vars')],
+            [self._cell('Metadata'), _vars('metadata_vars')],
         ]
         story.append(self._build_table(rows, [2.2 * inch, 4.3 * inch]))
         return story
@@ -234,12 +238,15 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
 
         simple_duplicates = result.get('simple_duplicates', [])
         if simple_duplicates:
-            rows = [['ID', 'Repeticiones', 'Filas']]
+            rows = [[Paragraph('<b>ID</b>', self.styles['Body']),
+                     Paragraph('<b>Repeticiones</b>', self.styles['Body']),
+                     Paragraph('<b>Filas</b>', self.styles['Body'])]]
             for dup in simple_duplicates[:20]:
+                id_str = ' | '.join(str(v) for v in dup.get('id_values', {}).values())
                 rows.append([
-                    ' | '.join(str(value) for value in dup.get('id_values', {}).values()),
-                    str(dup.get('count', 0)),
-                    ', '.join(str(idx) for idx in dup.get('row_indices', []))
+                    self._cell(id_str[:60] + '…' if len(id_str) > 60 else id_str),
+                    self._cell(dup.get('count', 0)),
+                    self._cell(self._truncate_list(dup.get('row_indices', []), limit=5, label='filas'))
                 ])
             story.append(Spacer(1, 10))
             story.append(Paragraph("Duplicados con valores distintos", self.styles['Heading2']))
@@ -247,11 +254,13 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
 
         clone_duplicates = result.get('clone_duplicates', [])
         if clone_duplicates:
-            rows = [['ID', 'Copias']]
+            rows = [[Paragraph('<b>ID</b>', self.styles['Body']),
+                     Paragraph('<b>Copias</b>', self.styles['Body'])]]
             for dup in clone_duplicates[:20]:
+                id_str = ' | '.join(str(v) for v in dup.get('id_values', {}).values())
                 rows.append([
-                    ' | '.join(str(value) for value in dup.get('id_values', {}).values()),
-                    str(dup.get('count', 0))
+                    self._cell(id_str[:80] + '…' if len(id_str) > 80 else id_str),
+                    self._cell(dup.get('count', 0))
                 ])
             story.append(Spacer(1, 10))
             story.append(Paragraph("Filas completamente idénticas", self.styles['Heading2']))
@@ -274,14 +283,18 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
 
         by_item = result.get('out_of_range_by_item', {})
         if by_item:
-            rows = [['Ítem', 'Fuera de rango', '%', 'Valores inválidos']]
+            rows = [[Paragraph('<b>Ítem</b>', self.styles['Body']),
+                     Paragraph('<b>Fuera de rango</b>', self.styles['Body']),
+                     Paragraph('<b>%</b>', self.styles['Body']),
+                     Paragraph('<b>Valores inválidos</b>', self.styles['Body'])]]
             for item, data in list(by_item.items())[:25]:
-                invalid_values = ', '.join(f"{key} ({value})" for key, value in list(data.get('invalid_values', {}).items())[:4])
+                invalid_parts = [f"{k} ({v})" for k, v in list(data.get('invalid_values', {}).items())[:6]]
+                invalid_str = self._truncate_list(invalid_parts, limit=6) if invalid_parts else 'N/A'
                 rows.append([
-                    item,
-                    str(data.get('count', 0)),
-                    f"{data.get('percentage', 0)}%",
-                    invalid_values or 'N/A'
+                    self._cell(item),
+                    self._cell(data.get('count', 0)),
+                    self._cell(f"{data.get('percentage', 0)}%"),
+                    self._cell(invalid_str)
                 ])
             story.append(Spacer(1, 10))
             story.append(self._build_table(rows, [1.7 * inch, 1.0 * inch, 0.8 * inch, 3.0 * inch]))
@@ -308,13 +321,17 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
 
         details = result.get('missing_by_participant', {}).get('details', [])
         if details:
-            rows = [['Fila', 'ID', 'Missing', '%']]
+            rows = [[Paragraph('<b>Fila</b>', self.styles['Body']),
+                     Paragraph('<b>ID</b>', self.styles['Body']),
+                     Paragraph('<b>Missing</b>', self.styles['Body']),
+                     Paragraph('<b>%</b>', self.styles['Body'])]]
             for participant in details[:20]:
+                id_str = ' | '.join(str(v) for v in participant.get('participant_id', {}).values())
                 rows.append([
-                    str(participant.get('row_index', '')),
-                    ' | '.join(str(value) for value in participant.get('participant_id', {}).values()),
-                    f"{participant.get('missing_count', 0)}/{participant.get('total_items', 0)}",
-                    f"{participant.get('percentage', 0)}%"
+                    self._cell(participant.get('row_index', '')),
+                    self._cell(id_str[:60] + '…' if len(id_str) > 60 else id_str),
+                    self._cell(f"{participant.get('missing_count', 0)}/{participant.get('total_items', 0)}"),
+                    self._cell(f"{participant.get('percentage', 0)}%")
                 ])
             story.append(self._build_table(rows, [0.8 * inch, 3.0 * inch, 1.0 * inch, 1.2 * inch]))
 
@@ -337,18 +354,20 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
         constant_columns = result.get('constant_columns', [])
         quasi_constant_columns = result.get('quasi_constant_columns', [])
         if constant_columns or quasi_constant_columns:
-            rows = [['Columna', 'Tipo', 'Detalle']]
+            rows = [[Paragraph('<b>Columna</b>', self.styles['Body']),
+                     Paragraph('<b>Tipo</b>', self.styles['Body']),
+                     Paragraph('<b>Detalle</b>', self.styles['Body'])]]
             for column in constant_columns:
                 rows.append([
-                    column.get('column', ''),
-                    'Constante',
-                    f"Valor único: {column.get('value', '')} ({column.get('count', 0)} filas)"
+                    self._cell(column.get('column', '')),
+                    self._cell('Constante'),
+                    self._cell(f"Valor único: {column.get('value', '')} ({column.get('count', 0)} filas)")
                 ])
             for column in quasi_constant_columns:
                 rows.append([
-                    column.get('column', ''),
-                    'Quasi-constante',
-                    f"Dominante: {column.get('dominant_value', '')} ({column.get('dominant_percentage', 0)}%)"
+                    self._cell(column.get('column', '')),
+                    self._cell('Quasi-constante'),
+                    self._cell(f"Dominante: {column.get('dominant_value', '')} ({column.get('dominant_percentage', 0)}%)")
                 ])
             story.append(self._build_table(rows, [1.8 * inch, 1.5 * inch, 3.2 * inch]))
 
@@ -365,12 +384,14 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
         duplicate_groups = duplicate_names.get('duplicate_groups', [])
         if duplicate_groups:
             story.append(Paragraph("Nombres de variables repetidos", self.styles['Heading2']))
-            rows = [['Nombre', 'Veces', 'Columnas']]
+            rows = [[Paragraph('<b>Nombre</b>', self.styles['Body']),
+                     Paragraph('<b>Veces</b>', self.styles['Body']),
+                     Paragraph('<b>Columnas</b>', self.styles['Body'])]]
             for group in duplicate_groups[:20]:
                 rows.append([
-                    group.get('name', ''),
-                    str(group.get('count', 0)),
-                    ', '.join(str(idx) for idx in group.get('column_indices', []))
+                    self._cell(group.get('name', '')),
+                    self._cell(group.get('count', 0)),
+                    self._cell(self._truncate_list(group.get('column_indices', []), limit=8))
                 ])
             story.append(self._build_table(rows, [2.6 * inch, 0.9 * inch, 2.8 * inch]))
             story.append(Spacer(1, 10))
@@ -378,11 +399,12 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
         identical_pairs = identical_columns.get('identical_pairs', [])
         if identical_pairs:
             story.append(Paragraph("Columnas idénticas", self.styles['Heading2']))
-            rows = [['Columnas', 'Cantidad']]
+            rows = [[Paragraph('<b>Columnas</b>', self.styles['Body']),
+                     Paragraph('<b>Cantidad</b>', self.styles['Body'])]]
             for pair in identical_pairs[:20]:
                 rows.append([
-                    ', '.join(pair.get('columns', [])),
-                    str(pair.get('count', 0))
+                    self._cell(self._truncate_list(pair.get('columns', []), limit=8)),
+                    self._cell(pair.get('count', 0))
                 ])
             story.append(self._build_table(rows, [5.3 * inch, 1.2 * inch]))
 
@@ -426,7 +448,23 @@ class RespuestasPDFReportExporter(BasePDFReportExporter):
         ))
         return story
 
-    def _build_table(self, rows: List[List[str]], col_widths: List[float]) -> Table:
+    def _cell(self, text) -> 'Paragraph':
+        """Wrap cell content in a Paragraph so ReportLab performs word-wrap."""
+        safe = str(text) if text is not None else ''
+        return Paragraph(safe, self.styles['CellText'])
+
+    def _truncate_list(self, items: list, limit: int = 5, label: str = '') -> str:
+        """Return a comma-joined string, truncating with '…(N total)' if over limit."""
+        if not items:
+            return '—'
+        strs = [str(i) for i in items]
+        if len(strs) <= limit:
+            return ', '.join(strs)
+        shown = ', '.join(strs[:limit])
+        suffix = f' … ({len(strs)} {label})' if label else f' … ({len(strs)} total)'
+        return shown + suffix
+
+    def _build_table(self, rows: List[List], col_widths: List[float]) -> Table:
         table = Table(rows, colWidths=col_widths)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), BRAND_COLORS['primary']),

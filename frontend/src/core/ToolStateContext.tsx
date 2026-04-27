@@ -46,6 +46,7 @@ export interface LdCState {
   parsed: boolean;
   columns: string[];
   autoDetected: boolean;
+  raw_rows: any[]; // Filas completas del LdC para poder re-hacer matching cuando cambia el archivo base
 }
 
 // Define el estado específico de la herramienta de respuestas

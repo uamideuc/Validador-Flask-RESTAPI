@@ -242,14 +242,16 @@ const LdCUpload: React.FC<LdCUploadProps> = ({
         },
         parsed: true,
         columns: ldcColumns,
-        autoDetected
+        autoDetected,
+        raw_rows: rows
       };
 
       onLdCParsed(ldcNewState, configs, suggested);
       setShowMappingDialog(false);
       setError(null);
 
-      if (matchCount === 0) {
+      // Solo mostrar advertencia de sin-coincidencias cuando el archivo base ya fue cargado
+      if (matchCount === 0 && responseVariables.length > 0) {
         setError('El libro de códigos no coincide con ninguna variable de la base. Verifica los nombres.');
       }
 
@@ -416,5 +418,59 @@ const LdCUpload: React.FC<LdCUploadProps> = ({
     </Box>
   );
 };
+
+/**
+ * Ejecuta el matching del LdC contra un conjunto de variables del archivo base.
+ * Función pura reutilizable para re-matching cuando cambia el archivo base.
+ */
+export function runLdCMatching(
+  rows: any[],
+  nameCol: string,
+  valuesCol: string,
+  missingCol: string,
+  responseVariables: string[]
+): { configs: RespuestasItemConfig[]; suggested: LdCSuggestedCategorization } {
+  const allVarsLower = new Set(responseVariables.map(v => v.toLowerCase()));
+  const configs: RespuestasItemConfig[] = [];
+  const suggestedResponseVars: string[] = [];
+  const suggestedNonResponseVars: string[] = [];
+  const matchedVarNames = new Set<string>();
+
+  for (const row of rows) {
+    const itemName = String(row[nameCol] || '').trim();
+    if (!itemName) continue;
+
+    const originalName = responseVariables.find(v => v.toLowerCase() === itemName.toLowerCase());
+    if (!originalName || !allVarsLower.has(itemName.toLowerCase())) continue;
+
+    matchedVarNames.add(originalName);
+    const parsedValues = parseValuesCell(row[valuesCol]);
+    const parsedMissing = parseMissingCell(row[missingCol]);
+    const rawMissing = String(row[missingCol] || '').trim().toLowerCase();
+    const isNotApplicable = NOT_APPLICABLE_VALUES.includes(rawMissing);
+
+    if (isNotApplicable) {
+      suggestedNonResponseVars.push(originalName);
+    } else {
+      suggestedResponseVars.push(originalName);
+      configs.push({
+        variable: originalName,
+        valid_values: parsedValues,
+        missing_values: parsedMissing.values,
+        missing_includes_empty: parsedMissing.includesEmpty
+      });
+    }
+  }
+
+  const unmatchedVars = responseVariables.filter(v => !matchedVarNames.has(v));
+  return {
+    configs,
+    suggested: {
+      response_vars: suggestedResponseVars,
+      non_response_vars: suggestedNonResponseVars,
+      unmatched_vars: unmatchedVars
+    }
+  };
+}
 
 export default LdCUpload;

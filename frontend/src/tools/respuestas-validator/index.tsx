@@ -13,7 +13,7 @@ import {
 import { useAuth } from '../../core/auth';
 import { useRespuestasState } from '../../core/ToolStateContext';
 import FileUpload from '../ensamblaje-validator/components/FileUpload';
-import LdCUpload, { LdCSuggestedCategorization } from './components/LdCUpload';
+import LdCUpload, { LdCSuggestedCategorization, runLdCMatching } from './components/LdCUpload';
 import VariableCategorization from './components/VariableCategorization';
 import ValidationReport from './components/ValidationReport';
 import { LdCState, RespuestasItemConfig } from '../../core/ToolStateContext';
@@ -47,6 +47,8 @@ const RespuestasValidator: React.FC = () => {
     }
   }, [isAuthenticated, setRespuestasState]);
 
+  const [ldcSuggested, setLdcSuggested] = useState<LdCSuggestedCategorization | null>(null);
+
   const handleFileUploaded = (data: any) => {
     setRespuestasState({
       uploadId: data.upload_id,
@@ -56,20 +58,40 @@ const RespuestasValidator: React.FC = () => {
   };
 
   const handleFileParsed = (data: any) => {
+    const newVariables: string[] = data.variables || [];
+    const existingLdc = respuestasState.ldcState;
+
+    // Re-hacer matching del LdC si ya estaba cargado antes que el archivo base
+    let reMatchedConfigs: RespuestasItemConfig[] | undefined;
+    let reMatchedSuggested: LdCSuggestedCategorization | undefined;
+    if (existingLdc?.raw_rows?.length && existingLdc.mapping.name_column && existingLdc.mapping.values_column && existingLdc.mapping.missing_column) {
+      const result = runLdCMatching(
+        existingLdc.raw_rows,
+        existingLdc.mapping.name_column,
+        existingLdc.mapping.values_column,
+        existingLdc.mapping.missing_column,
+        newVariables
+      );
+      reMatchedConfigs = result.configs;
+      reMatchedSuggested = result.suggested;
+    }
+
     setRespuestasState({
       parseData: data,
       error: '',
-      // Reset downstream state on new file
+      // Reset downstream validation state when new file is loaded
       validationResults: null,
       validationSessionId: null,
       savedCategorization: null,
       hasCompletedValidation: false,
-      itemConfigs: [],
-      ldcState: null
+      // Preserve LdC state; update itemConfigs from re-match if available
+      ...(reMatchedConfigs !== undefined ? { itemConfigs: reMatchedConfigs } : { itemConfigs: [] }),
     });
-  };
 
-  const [ldcSuggested, setLdcSuggested] = useState<LdCSuggestedCategorization | null>(null);
+    if (reMatchedSuggested) {
+      setLdcSuggested(reMatchedSuggested);
+    }
+  };
 
   const handleLdCParsed = (state: LdCState, configs: RespuestasItemConfig[], suggested: LdCSuggestedCategorization) => {
     const merged = [
@@ -191,14 +213,14 @@ const RespuestasValidator: React.FC = () => {
               onFileUploaded={handleFileUploaded}
               onFileParsed={handleFileParsed}
             />
-            {parseData && (
-              <Box sx={{ mt: 3 }}>
-                <LdCUpload
-                  ldcState={respuestasState.ldcState}
-                  onLdCParsed={handleLdCParsed}
-                  onLdCRemoved={handleLdCRemoved}
-                  responseVariables={parseData.variables || []}
-                />
+            <Box sx={{ mt: 3 }}>
+              <LdCUpload
+                ldcState={respuestasState.ldcState}
+                onLdCParsed={handleLdCParsed}
+                onLdCRemoved={handleLdCRemoved}
+                responseVariables={parseData?.variables || []}
+              />
+              {parseData && (
                 <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
                     variant="contained"
@@ -209,8 +231,8 @@ const RespuestasValidator: React.FC = () => {
                     Continuar a Categorización
                   </Button>
                 </Box>
-              </Box>
-            )}
+              )}
+            </Box>
           </Box>
         );
       case 1:
