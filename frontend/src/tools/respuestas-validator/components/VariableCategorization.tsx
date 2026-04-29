@@ -14,9 +14,19 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
-import { ExpandMore, DragIndicator, Person, QuestionAnswer, Folder, Description } from '@mui/icons-material';
+import { ExpandMore, DragIndicator, Person, QuestionAnswer, Folder, Description, AutoFixHigh } from '@mui/icons-material';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import ItemConfigPanel, { ResponseType } from './ItemConfigPanel';
@@ -211,6 +221,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showLdcSummary, setShowLdcSummary] = useState(false);
 
   useEffect(() => {
     if (!isInitialized && variables.length > 0) {
@@ -241,28 +252,38 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
             .map(n => ({ name: n, sampleValues: sampleValues[n] || [] }))
         );
       } else if (ldcSuggestedCategorization) {
-        // Auto-categorize from LdC suggestion
-        const toVar = (name: string): Variable => ({
-          name,
-          sampleValues: sampleValues[name] || []
-        });
+        const toVar = (name: string): Variable => ({ name, sampleValues: sampleValues[name] || [] });
 
-        const responseSet = new Set(ldcSuggestedCategorization.response_vars);
-        const nonResponseSet = new Set(ldcSuggestedCategorization.non_response_vars);
-
-        const categorized: Record<string, Variable[]> = {
-          participant_id_vars: [],
-          other_relevant_vars: ldcSuggestedCategorization.non_response_vars.map(toVar),
-          response_vars: ldcSuggestedCategorization.response_vars.map(toVar),
-          metadata_vars: [],
-        };
-
-        const uncategorized = variables
-          .filter(n => !responseSet.has(n) && !nonResponseSet.has(n))
-          .map(toVar);
-
-        setCategorizedVariables(categorized);
-        setUncategorizedVariables(uncategorized);
+        if (ldcSuggestedCategorization.has_tipo_validacion) {
+          // Categorización enriquecida por columna tipo_validacion del LdC
+          const categorized: Record<string, Variable[]> = {
+            participant_id_vars: ldcSuggestedCategorization.participant_id_vars.map(toVar),
+            other_relevant_vars: ldcSuggestedCategorization.other_relevant_vars_from_ldc.map(toVar),
+            response_vars: ldcSuggestedCategorization.response_vars.map(toVar),
+            metadata_vars: ldcSuggestedCategorization.metadata_vars_from_ldc.map(toVar),
+          };
+          const allAssigned = new Set([
+            ...ldcSuggestedCategorization.participant_id_vars,
+            ...ldcSuggestedCategorization.other_relevant_vars_from_ldc,
+            ...ldcSuggestedCategorization.response_vars,
+            ...ldcSuggestedCategorization.metadata_vars_from_ldc,
+          ]);
+          setCategorizedVariables(categorized);
+          setUncategorizedVariables(variables.filter(n => !allAssigned.has(n)).map(toVar));
+        } else {
+          // Categorización clásica: respuestas vs no-aplica del LdC
+          const responseSet = new Set(ldcSuggestedCategorization.response_vars);
+          const nonResponseSet = new Set(ldcSuggestedCategorization.non_response_vars);
+          setCategorizedVariables({
+            participant_id_vars: [],
+            other_relevant_vars: ldcSuggestedCategorization.non_response_vars.map(toVar),
+            response_vars: ldcSuggestedCategorization.response_vars.map(toVar),
+            metadata_vars: [],
+          });
+          setUncategorizedVariables(
+            variables.filter(n => !responseSet.has(n) && !nonResponseSet.has(n)).map(toVar)
+          );
+        }
       } else {
         setUncategorizedVariables(
           variables.map(n => ({ name: n, sampleValues: sampleValues[n] || [] }))
@@ -341,6 +362,27 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     const config = itemConfigs.find(c => c.variable === v.name);
     return config && (config.missing_includes_empty || config.missing_values.length > 0);
   });
+
+  const handleReapplyLdcSuggestion = useCallback(() => {
+    if (!ldcSuggestedCategorization?.has_tipo_validacion) return;
+    const toVar = (name: string): Variable => ({ name, sampleValues: sampleValues[name] || [] });
+    const categorized: Record<string, Variable[]> = {
+      participant_id_vars: ldcSuggestedCategorization.participant_id_vars.map(toVar),
+      other_relevant_vars: ldcSuggestedCategorization.other_relevant_vars_from_ldc.map(toVar),
+      response_vars: ldcSuggestedCategorization.response_vars.map(toVar),
+      metadata_vars: ldcSuggestedCategorization.metadata_vars_from_ldc.map(toVar),
+    };
+    const allAssigned = new Set([
+      ...ldcSuggestedCategorization.participant_id_vars,
+      ...ldcSuggestedCategorization.other_relevant_vars_from_ldc,
+      ...ldcSuggestedCategorization.response_vars,
+      ...ldcSuggestedCategorization.metadata_vars_from_ldc,
+    ]);
+    setCategorizedVariables(categorized);
+    setUncategorizedVariables(variables.filter(n => !allAssigned.has(n)).map(toVar));
+    if (respuestasState.hasCompletedValidation) setRespuestasState({ hasChangesAfterValidation: true });
+    setShowLdcSummary(false);
+  }, [ldcSuggestedCategorization, variables, sampleValues, respuestasState.hasCompletedValidation, setRespuestasState]);
 
   const handleSaveCategorization = () => {
     if (categorizedVariables.participant_id_vars.length === 0) {
@@ -421,9 +463,16 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
 
         {renamedColumns && Object.keys(renamedColumns).length > 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            <strong>Columnas renombradas automáticamente:</strong> Tu archivo tenía columnas con nombres repetidos que Python renombró para distinguirlas:{' '}
-            {Object.entries(renamedColumns).map(([renamed, original]) => `${renamed} (original: ${original})`).join(', ')}.
-            {' '}Si son duplicados no intencionales, corrígelos en el archivo original antes de re-subir.
+            <strong>Columnas renombradas automáticamente:</strong> El Validador detectó columnas
+            con nombres repetidos y las renombró para distinguirlas:
+            <Box component="ul" sx={{ mt: 0.5, mb: 0.5, pl: 2 }}>
+              {Object.entries(renamedColumns).map(([renamed, original]) => (
+                <li key={renamed}>
+                  <strong>{renamed}</strong> <span style={{ color: '#666' }}>(nombre original: {original})</span>
+                </li>
+              ))}
+            </Box>
+            Si son duplicados no intencionales, corrígelos en el archivo original antes de re-subir.
           </Alert>
         )}
 
@@ -444,8 +493,18 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           </Box>
         </Paper>
 
-        {/* Preview toggle */}
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        {/* Preview toggle + botón categorización insumada */}
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          {ldcSuggestedCategorization?.has_tipo_validacion && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AutoFixHigh />}
+              onClick={() => setShowLdcSummary(true)}
+            >
+              Categorización LdC
+            </Button>
+          )}
           <Button
             variant="outlined"
             size="small"
@@ -580,6 +639,62 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           </Button>
         </Box>
       </Box>
+      {/* Diálogo: Categorización insumada por Libro de Códigos */}
+      {ldcSuggestedCategorization?.has_tipo_validacion && (
+        <Dialog open={showLdcSummary} onClose={() => setShowLdcSummary(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            Categorización definida por Libro de Códigos (LdC)
+            <Chip label="tipo_validacion" color="info" size="small" sx={{ ml: 1 }} />
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Asignación de variables según la columna <strong>tipo_validacion</strong> del Libro de Códigos (LdC).
+              Puedes re-aplicarla en cualquier momento para revertir cambios manuales.
+            </Typography>
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Caja</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Variables</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {[
+                    { label: '1. Identificación del Participante', vars: ldcSuggestedCategorization.participant_id_vars, color: '#1976d2' },
+                    { label: '2. Otras Variables Relevantes', vars: ldcSuggestedCategorization.other_relevant_vars_from_ldc, color: '#388e3c' },
+                    { label: '3. Respuestas / Ítems', vars: ldcSuggestedCategorization.response_vars, color: '#f57c00' },
+                    { label: '4. Metadata / Complementarias', vars: ldcSuggestedCategorization.metadata_vars_from_ldc, color: '#7b1fa2' },
+                    { label: 'Sin categorizar (tipo no reconocido)', vars: ldcSuggestedCategorization.unmatched_vars, color: '#757575' },
+                  ].map(({ label, vars, color }) => (
+                    <TableRow key={label}>
+                      <TableCell sx={{ color, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        {label} ({vars.length})
+                      </TableCell>
+                      <TableCell>
+                        {vars.length === 0
+                          ? <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>—</Typography>
+                          : <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {vars.map(v => (
+                                <Chip key={v} label={v} size="small" variant="outlined" />
+                              ))}
+                            </Box>
+                        }
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowLdcSummary(false)}>Cerrar</Button>
+            <Button variant="contained" startIcon={<AutoFixHigh />} onClick={handleReapplyLdcSuggestion}>
+              Re-aplicar categorización
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </DndProvider>
   );
 };

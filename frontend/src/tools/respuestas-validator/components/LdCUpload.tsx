@@ -29,6 +29,34 @@ import { RespuestasItemConfig, LdCState } from '../../../core/ToolStateContext';
 const LDC_NAME_CANDIDATES = ['nombre', 'variable', 'item', 'name', 'var', 'columna', 'variables'];
 const LDC_VALUES_CANDIDATES = ['valores', 'valores_validos', 'valid_values', 'values', 'categorias', 'opciones'];
 const LDC_MISSING_CANDIDATES = ['missing', 'missings', 'valores_missing', 'missing_values', 'perdidos', 'na'];
+const TIPO_VALIDACION_CANDIDATES = ['tipo_validacion', 'tipo_val', 'type_val', 'categoria_var'];
+
+// Vocabulario controlado: valor del LdC → caja de categorización
+export const TIPO_VALIDACION_BOX_DEFAULTS: Record<string, string> = {
+  'id_participante': 'participant_id_vars',
+  'id': 'participant_id_vars', // definitiva
+  'identificador': 'participant_id_vars',
+  'identificacion': 'participant_id_vars',
+  'respuesta': 'response_vars',
+  'respuestas': 'response_vars',
+  'item': 'response_vars',  // definitiva
+  'items': 'response_vars',
+  'itemes': 'response_vars',
+  'metadata': 'metadata_vars',
+  'metadatas': 'metadata_vars',
+  'contexto': 'metadata_vars',
+  'complementaria': 'metadata_vars',  // definitiva
+  'complementarias': 'metadata_vars',
+  'complementario': 'metadata_vars',
+  'complementarios': 'metadata_vars',
+  'relevante': 'other_relevant_vars',
+  'relevantes': 'other_relevant_vars',
+  'otro_relevante': 'other_relevant_vars',
+  'otro': 'other_relevant_vars',
+  'otros': 'other_relevant_vars',
+  'otra': 'other_relevant_vars',  // definitiva
+  'otras': 'other_relevant_vars',
+};
 
 const NOT_APPLICABLE_VALUES = ['no aplica', 'n/a', 'na', 'no_aplica', 'not applicable', '-', 'ninguno'];
 
@@ -36,6 +64,11 @@ export interface LdCSuggestedCategorization {
   response_vars: string[];
   non_response_vars: string[];
   unmatched_vars: string[];
+  // Campos enriquecidos por tipo_validacion (presentes cuando has_tipo_validacion = true)
+  participant_id_vars: string[];
+  other_relevant_vars_from_ldc: string[];
+  metadata_vars_from_ldc: string[];
+  has_tipo_validacion: boolean;
 }
 
 interface LdCUploadProps {
@@ -45,13 +78,25 @@ interface LdCUploadProps {
   responseVariables: string[];
 }
 
+// Normaliza: minúsculas + sin tildes/diacríticos
+function normalizeStr(str: string): string {
+  return str.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+// Retorna la primera columna que coincide con algún candidato (orden de candidatos)
 function autoDetectColumn(columns: string[], candidates: string[]): string | null {
-  const lower = columns.map(c => c.toLowerCase().trim());
   for (const candidate of candidates) {
-    const idx = lower.indexOf(candidate);
-    if (idx >= 0) return columns[idx];
+    const normCand = normalizeStr(candidate);
+    const found = columns.find(c => normalizeStr(c) === normCand);
+    if (found) return found;
   }
   return null;
+}
+
+// Retorna TODAS las columnas que coinciden con algún candidato (para detectar conflictos)
+function detectAllMatches(columns: string[], candidates: string[]): string[] {
+  const normCandidates = new Set(candidates.map(normalizeStr));
+  return columns.filter(c => normCandidates.has(normalizeStr(c)));
 }
 
 function parseValuesCell(value: any): string[] {
@@ -100,6 +145,8 @@ const LdCUpload: React.FC<LdCUploadProps> = ({
   const [missingCol, setMissingCol] = useState<string | null>(null);
   const [autoDetected, setAutoDetected] = useState(false);
   const [preview, setPreview] = useState<any[]>([]);
+  const [tipoValidacionCol, setTipoValidacionCol] = useState<string | null>(null);
+  const [tipoValidacionMatches, setTipoValidacionMatches] = useState<string[]>([]);
 
   const uploadAndParse = useCallback(async (file: File) => {
     setUploading(true);
@@ -144,6 +191,11 @@ const LdCUpload: React.FC<LdCUploadProps> = ({
 
       const allDetected = !!(detectedName && detectedValues && detectedMissing);
       setAutoDetected(allDetected);
+
+      const tipoMatches = detectAllMatches(columns, TIPO_VALIDACION_CANDIDATES);
+      setTipoValidacionMatches(tipoMatches);
+      // Pre-seleccionar solo si hay exactamente una coincidencia (sin ambigüedad)
+      setTipoValidacionCol(tipoMatches.length === 1 ? tipoMatches[0] : null);
 
       const previewResp = await axios.post(`/api/files/${uploadData.upload_id}/preview`, {
         sheet_name: sheetName,
@@ -229,8 +281,27 @@ const LdCUpload: React.FC<LdCUploadProps> = ({
       const suggested: LdCSuggestedCategorization = {
         response_vars: suggestedResponseVars,
         non_response_vars: suggestedNonResponseVars,
-        unmatched_vars: unmatchedVars
+        unmatched_vars: unmatchedVars,
+        participant_id_vars: [],
+        other_relevant_vars_from_ldc: [],
+        metadata_vars_from_ldc: [],
+        has_tipo_validacion: false
       };
+
+      // Construir mapa tipo_validacion desde el LdC completo (sin filtrar por base).
+      // Las claves son los nombres del LdC tal como aparecen; el matching contra la
+      // base se hace después en computeTipoValidacionSuggested (case + tilde insensitive).
+      let tipoMap: Record<string, string> | null = null;
+      if (tipoValidacionCol) {
+        tipoMap = {};
+        for (const row of rows) {
+          const itemName = String(row[nameCol] || '').trim();
+          const tipoValue = normalizeStr(String(row[tipoValidacionCol] || ''));
+          if (!itemName || !tipoValue) continue;
+          tipoMap[itemName] = tipoValue;
+        }
+        if (Object.keys(tipoMap).length === 0) tipoMap = null;
+      }
 
       const ldcNewState: LdCState = {
         uploadId: ldcData.uploadId,
@@ -243,7 +314,9 @@ const LdCUpload: React.FC<LdCUploadProps> = ({
         parsed: true,
         columns: ldcColumns,
         autoDetected,
-        raw_rows: rows
+        raw_rows: rows,
+        tipo_validacion_column: tipoValidacionCol,
+        tipo_validacion_map: tipoMap
       };
 
       onLdCParsed(ldcNewState, configs, suggested);
@@ -402,6 +475,31 @@ const LdCUpload: React.FC<LdCUploadProps> = ({
                 ))}
               </Select>
             </FormControl>
+
+            {tipoValidacionMatches.length > 0 && (
+              <Box>
+                {tipoValidacionMatches.length > 1 && (
+                  <Alert severity="warning" sx={{ mb: 1 }}>
+                    Se detectaron <strong>{tipoValidacionMatches.length} columnas posibles</strong> para
+                    tipo de validación ({tipoValidacionMatches.join(', ')}). Selecciona cuál usar o elige
+                    "No usar" para ignorarlas.
+                  </Alert>
+                )}
+                <FormControl fullWidth>
+                  <InputLabel>Columna "Tipo de validación" (categorización automática)</InputLabel>
+                  <Select
+                    value={tipoValidacionCol || ''}
+                    label='Columna "Tipo de validación" (categorización automática)'
+                    onChange={(e) => setTipoValidacionCol(e.target.value || null)}
+                  >
+                    <MenuItem value=""><em>No usar</em></MenuItem>
+                    {ldcColumns.map(col => (
+                      <MenuItem key={col} value={col}>{col}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -430,7 +528,7 @@ export function runLdCMatching(
   missingCol: string,
   responseVariables: string[]
 ): { configs: RespuestasItemConfig[]; suggested: LdCSuggestedCategorization } {
-  const allVarsLower = new Set(responseVariables.map(v => v.toLowerCase()));
+  const allVarsNorm = new Map(responseVariables.map(v => [normalizeStr(v), v]));
   const configs: RespuestasItemConfig[] = [];
   const suggestedResponseVars: string[] = [];
   const suggestedNonResponseVars: string[] = [];
@@ -440,8 +538,8 @@ export function runLdCMatching(
     const itemName = String(row[nameCol] || '').trim();
     if (!itemName) continue;
 
-    const originalName = responseVariables.find(v => v.toLowerCase() === itemName.toLowerCase());
-    if (!originalName || !allVarsLower.has(itemName.toLowerCase())) continue;
+    const originalName = allVarsNorm.get(normalizeStr(itemName));
+    if (!originalName) continue;
 
     matchedVarNames.add(originalName);
     const parsedValues = parseValuesCell(row[valuesCol]);
@@ -468,8 +566,51 @@ export function runLdCMatching(
     suggested: {
       response_vars: suggestedResponseVars,
       non_response_vars: suggestedNonResponseVars,
-      unmatched_vars: unmatchedVars
+      unmatched_vars: unmatchedVars,
+      participant_id_vars: [],
+      other_relevant_vars_from_ldc: [],
+      metadata_vars_from_ldc: [],
+      has_tipo_validacion: false
     }
+  };
+}
+
+/**
+ * Calcula la categorización sugerida a partir del mapa tipo_validacion del LdC.
+ * Usa el vocabulario controlado TIPO_VALIDACION_BOX_DEFAULTS para asignar cada variable a su caja.
+ */
+export function computeTipoValidacionSuggested(
+  tipoMap: Record<string, string>,
+  allVariables: string[]
+): LdCSuggestedCategorization {
+  const participant_id_vars: string[] = [];
+  const response_vars: string[] = [];
+  const other_relevant_vars: string[] = [];
+  const metadata_vars: string[] = [];
+  const mapped = new Set<string>();
+  // Match con normalización: case-insensitive + sin tildes
+  const allVarsNorm = new Map(allVariables.map(v => [normalizeStr(v), v]));
+
+  for (const [ldcVar, tipoValue] of Object.entries(tipoMap)) {
+    const originalVar = allVarsNorm.get(normalizeStr(ldcVar));
+    if (!originalVar) continue;
+    // tipoValue ya viene normalizado desde handleConfirmMapping
+    const box = TIPO_VALIDACION_BOX_DEFAULTS[tipoValue] ?? null;
+    if (box === 'participant_id_vars') participant_id_vars.push(originalVar);
+    else if (box === 'response_vars') response_vars.push(originalVar);
+    else if (box === 'other_relevant_vars') other_relevant_vars.push(originalVar);
+    else if (box === 'metadata_vars') metadata_vars.push(originalVar);
+    if (box) mapped.add(originalVar);
+  }
+
+  return {
+    participant_id_vars,
+    response_vars,
+    non_response_vars: [],
+    other_relevant_vars_from_ldc: other_relevant_vars,
+    metadata_vars_from_ldc: metadata_vars,
+    unmatched_vars: allVariables.filter(v => !mapped.has(v)),
+    has_tipo_validacion: true
   };
 }
 

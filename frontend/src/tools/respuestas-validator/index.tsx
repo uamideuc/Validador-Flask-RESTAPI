@@ -13,7 +13,7 @@ import {
 import { useAuth } from '../../core/auth';
 import { useRespuestasState } from '../../core/ToolStateContext';
 import FileUpload from '../ensamblaje-validator/components/FileUpload';
-import LdCUpload, { LdCSuggestedCategorization, runLdCMatching } from './components/LdCUpload';
+import LdCUpload, { LdCSuggestedCategorization, runLdCMatching, computeTipoValidacionSuggested } from './components/LdCUpload';
 import VariableCategorization from './components/VariableCategorization';
 import ValidationReport from './components/ValidationReport';
 import { LdCState, RespuestasItemConfig } from '../../core/ToolStateContext';
@@ -110,6 +110,13 @@ const RespuestasValidator: React.FC = () => {
   };
 
   const handleGoToCategorization = () => {
+    // Si el LdC tiene tipo_validacion, calcular sugerencia enriquecida en este momento
+    // (independiente del orden en que se cargaron LdC y archivo base)
+    const ldc = respuestasState.ldcState;
+    const allVars: string[] = respuestasState.parseData?.variables || [];
+    if (ldc?.tipo_validacion_map && Object.keys(ldc.tipo_validacion_map).length > 0) {
+      setLdcSuggested(computeTipoValidacionSuggested(ldc.tipo_validacion_map, allVars));
+    }
     setRespuestasState({ activeStep: 1 });
   };
 

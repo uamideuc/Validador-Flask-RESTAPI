@@ -47,6 +47,8 @@ export interface LdCState {
   columns: string[];
   autoDetected: boolean;
   raw_rows: any[]; // Filas completas del LdC para poder re-hacer matching cuando cambia el archivo base
+  tipo_validacion_column: string | null; // Nombre de columna tipo_validacion detectada en el LdC
+  tipo_validacion_map: Record<string, string> | null; // { variable_name: tipo_value } para auto-categorización
 }
 
 // Define el estado específico de la herramienta de respuestas

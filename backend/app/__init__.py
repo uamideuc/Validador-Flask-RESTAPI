@@ -173,15 +173,6 @@ def create_app():
         """Log request information for security monitoring"""
         from flask import request
         
-        # Log suspicious requests to root
-        if request.path == '/' and request.method == 'POST':
-            user_agent = request.headers.get('User-Agent', '')
-            if 'Valve/Steam' not in user_agent:
-                print(f"🚨 SUSPICIOUS REQUEST: {request.method} {request.path} from {request.remote_addr}")
-                print(f"   Headers: {dict(request.headers)}")
-                print(f"   User-Agent: {user_agent}")
-                print(f"   Content-Type: {request.headers.get('Content-Type', 'N/A')}")
-        
         if flask_env == 'production':
             # In production, log security-relevant requests
             if request.endpoint in ['auth.institutional_login', 'files.upload_file']:
