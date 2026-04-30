@@ -73,6 +73,11 @@ class RespuestasValidator:
                         'type': 'validation_report_pdf',
                         'name': 'Reporte de Validación (PDF)',
                         'description': 'Reporte completo de validaciones en formato PDF'
+                    },
+                    {
+                        'type': 'validation_excel',
+                        'name': 'Reporte de Validación Detallado (Excel)',
+                        'description': 'Base original con problemas marcados + detalle por validación sin truncar'
                     }
                 ]
             )

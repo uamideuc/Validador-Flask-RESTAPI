@@ -12,10 +12,15 @@ def validate_identical_columns(
 ) -> IdenticalColumnsValidationResult:
     result = IdenticalColumnsValidationResult(is_valid=True)
 
-    response_cols = [c for c in categorization.response_vars if c in data.columns]
+    columns_to_check = (
+        categorization.participant_id_vars +
+        categorization.other_relevant_vars +
+        categorization.response_vars
+    )
+    response_cols = [c for c in columns_to_check if c in data.columns]
 
     result.validation_parameters = {
-        'response_columns_checked': len(response_cols)
+        'columns_checked': len(response_cols)
     }
 
     if len(response_cols) < 2:

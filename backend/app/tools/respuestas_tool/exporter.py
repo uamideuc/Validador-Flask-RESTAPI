@@ -4,7 +4,7 @@ Orquestador de exportaciones para RespuestasToolKit
 import pandas as pd
 from typing import Dict, Any
 from ...core.models import RespuestasCategorization
-from .export_formats import RespuestasPDFReportExporter
+from .export_formats import RespuestasPDFReportExporter, RespuestasValidationExcelExporter
 
 
 class RespuestasExporter:
@@ -28,6 +28,15 @@ class RespuestasExporter:
                 }
 
             exporter = RespuestasPDFReportExporter(self.session_id)
+            return exporter.export(validation_session_id)
+
+        if export_type == 'validation_excel':
+            if validation_session_id is None:
+                return {
+                    'success': False,
+                    'error': 'validation_session_id requerido para exportación Excel'
+                }
+            exporter = RespuestasValidationExcelExporter(self.session_id)
             return exporter.export(validation_session_id)
 
         return {
