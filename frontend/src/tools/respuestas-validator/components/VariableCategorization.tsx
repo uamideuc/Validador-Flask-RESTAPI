@@ -26,7 +26,7 @@ import {
   TableHead,
   TableRow
 } from '@mui/material';
-import { ExpandMore, DragIndicator, Person, QuestionAnswer, Folder, Description, AutoFixHigh } from '@mui/icons-material';
+import { ExpandMore, DragIndicator, Person, QuestionAnswer, Folder, Description, AutoFixHigh, Visibility, VisibilityOff, RestartAlt } from '@mui/icons-material';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import ItemConfigPanel, { ResponseType } from './ItemConfigPanel';
@@ -454,12 +454,26 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           Arrastra las columnas a las categorías correspondientes, luego configura los ítems de respuesta.
         </Typography>
 
-        {uploadedFilename && (
-          <Paper sx={{ p: 1.5, mb: 2, backgroundColor: '#f5f5f5' }}>
-            <Typography variant="body2">
-              Archivo: <strong>{uploadedFilename}</strong>
-              {sheetName && <> | Hoja: <strong>{sheetName}</strong></>}
+        {(uploadedFilename || respuestasState.ldcState?.filename) && (
+          <Paper sx={{ p: 2, mb: 3, backgroundColor: '#f8f9fa', border: '1px solid #e0e0e0' }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', color: '#1976d2' }}>
+              📄 Información de Archivos
             </Typography>
+            {uploadedFilename && (
+              <Typography variant="body2" sx={{ mb: sheetName ? 0.5 : 0 }}>
+                <strong>Base de respuestas:</strong> {uploadedFilename}
+              </Typography>
+            )}
+            {sheetName && (
+              <Typography variant="body2" sx={{ mb: respuestasState.ldcState?.filename ? 0.5 : 0 }}>
+                <strong>Hoja:</strong> {sheetName}
+              </Typography>
+            )}
+            {respuestasState.ldcState?.filename && (
+              <Typography variant="body2">
+                <strong>Libro de Códigos:</strong> {respuestasState.ldcState.filename}
+              </Typography>
+            )}
           </Paper>
         )}
 
@@ -495,24 +509,15 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
           </Box>
         </Paper>
 
-        {/* Preview toggle + botón categorización insumada */}
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          {ldcSuggestedCategorization?.has_tipo_validacion && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AutoFixHigh />}
-              onClick={() => setShowLdcSummary(true)}
-            >
-              Categorización LdC
-            </Button>
-          )}
+        {/* Preview toggle - centrado */}
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
           <Button
-            variant="outlined"
-            size="small"
+            variant={showPreview ? 'contained' : 'outlined'}
+            startIcon={showPreview ? <VisibilityOff /> : <Visibility />}
             onClick={() => setShowPreview(!showPreview)}
+            sx={{ minWidth: 180 }}
           >
-            {showPreview ? 'Ocultar Preview de Datos' : 'Ver Preview de Datos'}
+            {showPreview ? 'Ocultar Preview' : 'Ver Preview de Datos'}
           </Button>
         </Box>
 
@@ -542,11 +547,6 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
                     Limpiar Selección
                   </Button>
                 )}
-                {totalCategorized > 0 && (
-                  <Button size="small" variant="outlined" color="warning" onClick={handleClearAll}>
-                    Limpiar Categorización
-                  </Button>
-                )}
               </Box>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -563,6 +563,32 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
               ))}
             </Box>
           </Paper>
+        )}
+
+        {/* Acciones de categorización - centradas */}
+        {(ldcSuggestedCategorization?.has_tipo_validacion || totalCategorized > 0) && (
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
+            {ldcSuggestedCategorization?.has_tipo_validacion && (
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<AutoFixHigh />}
+                onClick={() => setShowLdcSummary(true)}
+              >
+                Categorización LdC
+              </Button>
+            )}
+            {totalCategorized > 0 && (
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<RestartAlt />}
+                onClick={handleClearAll}
+              >
+                Limpiar Categorización
+              </Button>
+            )}
+          </Box>
         )}
 
         {/* Category drop zones */}
