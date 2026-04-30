@@ -43,6 +43,7 @@ export interface ResponseType {
   valid_values: string[];
   missing_values: string[];
   missing_includes_empty: boolean;
+  isLdc?: boolean;
 }
 
 interface ItemConfigPanelProps {
@@ -52,6 +53,8 @@ interface ItemConfigPanelProps {
   onTypesChange?: (types: ResponseType[], assignments: Record<string, string>) => void;
   initialTypes?: ResponseType[];
   initialAssignments?: Record<string, string>;
+  ldcItemConfigs?: RespuestasItemConfig[];
+  resetLdcTrigger?: number;
 }
 
 // ── Dialogs ────────────────────────────────────────────────────────────────
@@ -356,6 +359,8 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
   onTypesChange,
   initialTypes,
   initialAssignments,
+  ldcItemConfigs,
+  resetLdcTrigger,
 }) => {
   const [types, setTypes] = useState<ResponseType[]>([]);
   // Map: variable name → type id
@@ -407,12 +412,65 @@ const ItemConfigPanel: React.FC<ItemConfigPanelProps> = ({
         valid_values: config.valid_values,
         missing_values: config.missing_values,
         missing_includes_empty: config.missing_includes_empty,
+        isLdc: true,
       });
       for (const name of names) newAssignments[name] = id;
     }
     setTypes(newTypes);
     setAssignments(newAssignments);
   }, [itemConfigs, initialTypes, initialAssignments]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset to LdC state when triggered from parent (re-apply button)
+  React.useEffect(() => {
+    if (!resetLdcTrigger) return;
+
+    const sourceConfigs = ldcItemConfigs && ldcItemConfigs.length > 0 ? ldcItemConfigs : itemConfigs;
+    if (sourceConfigs.length === 0) return;
+
+    // Build LdC fingerprints and new types
+    const ldcFpSet = new Set<string>();
+    const fpMap = new Map<string, { config: RespuestasItemConfig; names: string[] }>();
+    for (const c of sourceConfigs) {
+      const fp = JSON.stringify({ v: [...c.valid_values].sort(), m: [...c.missing_values].sort(), e: c.missing_includes_empty });
+      ldcFpSet.add(fp);
+      if (!fpMap.has(fp)) fpMap.set(fp, { config: c, names: [] });
+      fpMap.get(fp)!.names.push(c.variable);
+    }
+
+    const newLdcTypes: ResponseType[] = [];
+    const newLdcAssignments: Record<string, string> = {};
+    let idx = 1;
+    for (const { config, names } of Array.from(fpMap.values())) {
+      const id = `type_ldc_${idx++}`;
+      newLdcTypes.push({
+        id,
+        label: `Tipo ${idx - 1} (LdC)`,
+        valid_values: config.valid_values,
+        missing_values: config.missing_values,
+        missing_includes_empty: config.missing_includes_empty,
+        isLdc: true,
+      });
+      for (const name of names) newLdcAssignments[name] = id;
+    }
+
+    const ldcAssignedItems = new Set(Object.keys(newLdcAssignments));
+
+    // Custom type = fingerprint NOT in LdC set (robust: doesn't rely on isLdc flag)
+    setTypes(prevTypes => {
+      const customTypes = prevTypes.filter(t => {
+        const fp = JSON.stringify({ v: [...t.valid_values].sort(), m: [...t.missing_values].sort(), e: t.missing_includes_empty });
+        return !ldcFpSet.has(fp);
+      });
+      return [...newLdcTypes, ...customTypes];
+    });
+    setAssignments(prevAssignments => {
+      const merged = { ...newLdcAssignments };
+      for (const [varName, typeId] of Object.entries(prevAssignments)) {
+        if (!ldcAssignedItems.has(varName)) merged[varName] = typeId;
+      }
+      return merged;
+    });
+  }, [resetLdcTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep parent itemConfigs in sync whenever types or assignments change
   React.useEffect(() => {

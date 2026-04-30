@@ -222,6 +222,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showLdcSummary, setShowLdcSummary] = useState(false);
+  const [ldcResetTrigger, setLdcResetTrigger] = useState(0);
 
   useEffect(() => {
     if (!isInitialized && variables.length > 0) {
@@ -381,6 +382,7 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
     setCategorizedVariables(categorized);
     setUncategorizedVariables(variables.filter(n => !allAssigned.has(n)).map(toVar));
     if (respuestasState.hasCompletedValidation) setRespuestasState({ hasChangesAfterValidation: true });
+    setLdcResetTrigger(prev => prev + 1);
     setShowLdcSummary(false);
   }, [ldcSuggestedCategorization, variables, sampleValues, respuestasState.hasCompletedValidation, setRespuestasState]);
 
@@ -593,6 +595,8 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
             }}
             initialTypes={responseTypes.length > 0 ? responseTypes : undefined}
             initialAssignments={typeAssignments}
+            ldcItemConfigs={respuestasState.itemConfigs}
+            resetLdcTrigger={ldcResetTrigger}
           />
         )}
 
@@ -644,11 +648,11 @@ const VariableCategorization: React.FC<VariableCategorizationProps> = ({
         <Dialog open={showLdcSummary} onClose={() => setShowLdcSummary(false)} maxWidth="md" fullWidth>
           <DialogTitle>
             Categorización definida por Libro de Códigos (LdC)
-            <Chip label="tipo_validacion" color="info" size="small" sx={{ ml: 1 }} />
+            <Chip label={respuestasState.ldcState?.tipo_validacion_column ?? 'tipo_validacion'} color="info" size="small" sx={{ ml: 1 }} />
           </DialogTitle>
           <DialogContent>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Asignación de variables según la columna <strong>tipo_validacion</strong> del Libro de Códigos (LdC).
+              Asignación de variables según la columna <strong>{respuestasState.ldcState?.tipo_validacion_column ?? 'tipo_validacion'}</strong> del Libro de Códigos (LdC).
               Puedes re-aplicarla en cualquier momento para revertir cambios manuales.
             </Typography>
             <TableContainer component={Paper} variant="outlined">
